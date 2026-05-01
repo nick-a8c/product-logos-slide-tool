@@ -4,7 +4,12 @@ A single-file browser tool for animating brand icon rows and exporting them as *
 
 [**▶ Try it live**](https://nick-a8c.github.io/product-logos-slide-tool/) · [Download](product-logos-slide-tool.html)
 
-![Icon Stage screenshot](examples/screenshot.png)
+![Icon Stage screenshot]
+(examples/settings.png)
+(examples/change-icons.png)
+(examples/A.png)
+(examples/B.png)
+(examples/C.png)
 
 ## What it does
 
