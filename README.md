@@ -2,7 +2,7 @@
 
 A single-file browser tool for animating brand icon rows and exporting them as **MP4, WebM, GIF, animated SVG, or PNG**. No install, no build step, no server — it's one HTML file.
 
-[**▶ Try it live**](https://YOUR-USERNAME.github.io/icon-stage/) · [Download](icon-stage.html)
+[**▶ Try it live**](https://nick-a8c.github.io/product-logos-slide-tool/) · [Download](product-logos-slide-tool.html)
 
 ![Icon Stage screenshot](examples/screenshot.png)
 
@@ -21,15 +21,15 @@ Drop in a set of SVG icons. Configure the row — count, spacing, scale, animati
 
 ### Option 1: Open the live version
 
-Visit [YOUR-USERNAME.github.io/icon-stage](https://YOUR-USERNAME.github.io/icon-stage/) in Chrome, Edge, or Safari 16.4+.
+Visit [nick-a8c.github.io/product-logos-slide-tool](https://nick-a8c.github.io/product-logos-slide-tool/) in Chrome, Edge, or Safari 16.4+.
 
 ### Option 2: Run locally
 
-Download `icon-stage.html`, double-click to open in your browser. That's it.
+Download `product-logos-slide-tool.html`, double-click to open in your browser. That's it.
 
 ### Option 3: Embed in a static site
 
-Drop `icon-stage.html` anywhere a static file can be served. No build, no bundler, no dependencies to install.
+Drop `product-logos-slide-tool.html` anywhere a static file can be served. No build, no bundler, no dependencies to install.
 
 ## Browser support
 
@@ -76,12 +76,12 @@ Hover any control's label to reveal an **AUTO / CUSTOM** toggle.
 Exports are named descriptively so you can find them later:
 
 ```
-icon-stage_1920x1080_high-q_v1.mp4
-icon-stage_1080x1920_medium-q_v1.gif
-icon-stage_preset_1920x1080_medium-q_v1.json
+product-logos-slide-tool_1920x1080_high-q_v1.mp4
+product-logos-slide-tool_1080x1920_medium-q_v1.gif
+product-logos-slide-tool_preset_1920x1080_medium-q_v1.json
 ```
 
-Format: `icon-stage_<resolution>_<quality>-q_<app-version>.<ext>`
+Format: `product-logos-slide-tool_<resolution>_<quality>-q_<app-version>.<ext>`
 
 ## Architecture
 
@@ -97,8 +97,8 @@ See `HANDOFF.md` for full architecture notes.
 ## Development
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/icon-stage.git
-cd icon-stage
+git clone https://github.com/nick-a8c/product-logos-slide-tool.git
+cd product-logos-slide-tool
 # Open index.html in a browser. That's it. No build step.
 ```
 
