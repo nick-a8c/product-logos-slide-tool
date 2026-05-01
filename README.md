@@ -1,4 +1,4 @@
-# Icon Stage
+# A8c Product logos animation slide tool
 
 A single-file browser tool for animating brand icon rows and exporting them as **MP4, WebM, GIF, animated SVG, or PNG**. No install, no build step, no server — it's one HTML file.
 
