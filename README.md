@@ -6,7 +6,7 @@ A single-file browser tool for animating brand icon rows and exporting them as *
 
 ——
 ——
-![Icon Stage screenshot](examples/settings.png)
+![Icon Stage screenshot](examples/icon number control - high - update 1.png)
 ![Icon Stage screenshot](examples/change-icons.png)
 ![Icon Stage screenshot](examples/A.png)
 ![Icon Stage screenshot](examples/B.png)
