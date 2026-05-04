@@ -6,11 +6,14 @@ A single-file browser tool for animating brand icon rows and exporting them as *
 
 ——
 ——
-![Icon Stage screenshot](examples/icon number control - high - update 1.png)
-![Icon Stage screenshot](examples/change-icons.png)
-![Icon Stage screenshot](examples/A.png)
-![Icon Stage screenshot](examples/B.png)
-![Icon Stage screenshot](examples/C.png)
+![Icon Stage screenshot](examples/01-setings-update-01.png)
+![Icon Stage screenshot](examples/02-icon-number-control-low-update_1.png)
+![Icon Stage screenshot](examples/03-icon-number-control-med-update_1.png)
+![Icon Stage screenshot](examples/04-icon-number-control-high-update_1.png)
+![Icon Stage screenshot](examples/05-replace-icon-update_1.png)
+![Icon Stage screenshot](examples/06-dark-mode-update_1.png)
+![Icon Stage screenshot](examples/07-undock-update_1.png)
+![Icon Stage screenshot](examples/08-toolbar-hide-update_1.png)
 
 ## What it does
 
