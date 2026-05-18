@@ -151,7 +151,6 @@
     justify-content: center;
     cursor: pointer;
     position: relative;
-    will-change: transform, opacity;
     border-radius: 22%;
     transition: outline 0.12s ease;
     outline: 0px solid transparent;
@@ -1306,14 +1305,6 @@
           <div class="row">
             <label>Resolution</label>
             <select id="s-resolution"></select>
-          </div>
-          <div class="row">
-            <label>Quality</label>
-            <select id="s-quality">
-              <option value="low">Low</option>
-              <option value="medium" selected>Medium</option>
-              <option value="high">High</option>
-            </select>
           </div>
           <div class="row">
             <label>FPS</label>
@@ -3324,7 +3315,7 @@ const state = {
   },
   bgOn: true, bgColor: '#ffffff',
   aspectRatio: '16:9',
-  resolution: '1920x1080', fps: 60, quality: 'medium',
+  resolution: '1920x1080', fps: 60,
   library: [], assignments: [],
   isPlaying: false, playStartTime: 0,
   editingSlot: -1,
@@ -3348,26 +3339,43 @@ const AUTO_ANCHORS = {
   25: { spacing: 12, scale: 51, duration: 1000, stagger: 20, slideDistance: 34, startScale: 10 },
 };
 const AUTO_ANCHOR_COUNTS = Object.keys(AUTO_ANCHORS).map(Number).sort((a, b) => a - b);
+
+// Spacing/scale overrides for vertical & square aspects, which clip at the
+// 25-icon defaults. Tuned so that at the 18-icon cap, spacing=10 / scale=53
+// fit cleanly inside 9:16, 4:5, and 1:1 frames.
+const AUTO_ANCHORS_RESTRICTED = {
+  2:  { spacing: 25, scale: 90 },
+  5:  { spacing: 23, scale: 90 },
+  9:  { spacing: 19, scale: 80 },
+  15: { spacing: 14, scale: 65 },
+  18: { spacing: 10, scale: 53 },
+};
+const AUTO_ANCHOR_COUNTS_RESTRICTED = Object.keys(AUTO_ANCHORS_RESTRICTED).map(Number).sort((a, b) => a - b);
+const RESTRICTED_AUTO_KEYS = new Set(['spacing', 'scale']);
+
 // Easing in auto mode = the "Original" preset.
 const AUTO_EASING = 'cubic-bezier(0.28, 0, 0, 1)';
 
 // Compute the auto-derived value for a single key at a given icon count.
 function getAutoValue(key, n) {
-  const counts = AUTO_ANCHOR_COUNTS;
+  const restricted = RESTRICTED_AUTO_KEYS.has(key)
+    && (state.aspectRatio === '9:16' || state.aspectRatio === '4:5' || state.aspectRatio === '1:1');
+  const table  = restricted ? AUTO_ANCHORS_RESTRICTED : AUTO_ANCHORS;
+  const counts = restricted ? AUTO_ANCHOR_COUNTS_RESTRICTED : AUTO_ANCHOR_COUNTS;
   // Clamp below/above
-  if (n <= counts[0])               return AUTO_ANCHORS[counts[0]][key];
-  if (n >= counts[counts.length-1]) return AUTO_ANCHORS[counts[counts.length-1]][key];
+  if (n <= counts[0])               return table[counts[0]][key];
+  if (n >= counts[counts.length-1]) return table[counts[counts.length-1]][key];
   // Find the two anchors that bracket n
   for (let i = 0; i < counts.length - 1; i++) {
     const lo = counts[i], hi = counts[i + 1];
     if (n >= lo && n <= hi) {
       const t = (n - lo) / (hi - lo);
-      const a = AUTO_ANCHORS[lo][key];
-      const b = AUTO_ANCHORS[hi][key];
+      const a = table[lo][key];
+      const b = table[hi][key];
       return Math.round(a + (b - a) * t);
     }
   }
-  return AUTO_ANCHORS[counts[0]][key]; // unreachable fallback
+  return table[counts[0]][key]; // unreachable fallback
 }
 
 // For every slider currently in auto mode, recompute its value based on state.count
@@ -3402,19 +3410,20 @@ function getCanvas() {
   return { w: r.w, h: r.h };
 }
 
-// Per-format quality knobs. Tuned so:
-//   - Low: small files, web-sharable
-//   - Medium: visually crisp, the previous default
-//   - High: visually lossless, large files (no inter-frame compression artifacts)
-const QUALITY_PRESETS = {
-  low:    { videoBpp: 0.05, gifMaxW: 720,  gifColors: 128, gifKsize: 'rgb444', keyframeIntervalSec: 2 },
-  medium: { videoBpp: 0.15, gifMaxW: 1280, gifColors: 256, gifKsize: 'rgb444', keyframeIntervalSec: 2 },
-  high:   { videoBpp: 0.40, gifMaxW: 1920, gifColors: 256, gifKsize: 'rgb565', keyframeIntervalSec: 0 },
-  // keyframeIntervalSec: 0 means "every frame is a keyframe" — no inter-frame loss
-};
-function getQuality() {
-  return QUALITY_PRESETS[state.quality] || QUALITY_PRESETS.medium;
+// Vertical/square ratios can't fit more than 18 icons without clipping.
+const COUNT_LIMIT_RESTRICTED = 18;
+const COUNT_LIMIT_DEFAULT = 25;
+function getMaxCountForAspect(ar) {
+  return (ar === '9:16' || ar === '4:5' || ar === '1:1')
+    ? COUNT_LIMIT_RESTRICTED : COUNT_LIMIT_DEFAULT;
 }
+
+// Per-format quality knobs — always the maximum fidelity tier:
+// every frame is a keyframe (no inter-frame loss), full-res GIF, rgb565 palette.
+const EXPORT_QUALITY = {
+  videoBpp: 1.00, gifMaxW: 1920, gifColors: 256, gifKsize: 'rgb565', keyframeIntervalSec: 0,
+};
+function getQuality() { return EXPORT_QUALITY; }
 
 const DEFAULT_ICONS = [
   { id: '01', name: "Tumblr", svg: `<svg width="54" height="54" viewBox="0 0 54 54" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="53.2954" height="53.2954" rx="26.6477" fill="black"/><path fill-rule="evenodd" clip-rule="evenodd" d="M28.7449 32.6012C28.7449 35.0041 29.9574 35.8368 31.8865 35.8368H34.624V41.9443H29.4411C24.7712 41.9443 21.2933 39.5414 21.2933 33.7907V24.587H17.0547V19.601C21.7213 18.3877 23.6742 14.3704 23.8983 10.8867H28.7449V18.7922H34.3998V24.587H28.7449V32.6012Z" fill="white"/></svg>` },
@@ -3494,7 +3503,7 @@ function persist() {
     startScale: state.startScale, easing: state.easing, bgOn: state.bgOn, bgColor: state.bgColor,
     auto: state.auto,
     aspectRatio: state.aspectRatio,
-    resolution: state.resolution, fps: state.fps, quality: state.quality, library: state.library, assignments: state.assignments,
+    resolution: state.resolution, fps: state.fps, library: state.library, assignments: state.assignments,
     theme: state.theme, panelState: state.panelState, panelX: state.panelX, panelY: state.panelY,
   };
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave)); } catch (e) {}
@@ -3591,9 +3600,29 @@ function applyAspectRatio(ar) {
   const r = ASPECT_RATIOS[ar];
   state.resolution = r.w + 'x' + r.h;
   populateResolutionDropdown();
+  applyCountLimitForAspect();
   // Re-render stage at new dimensions (skip animation to avoid replaying on every click)
   renderStage(true);
   persist();
+}
+
+// Update the Icons slider's max for the current aspect ratio and clamp state.count.
+function applyCountLimitForAspect() {
+  const max = getMaxCountForAspect(state.aspectRatio);
+  const rCount = document.getElementById('r-count');
+  const vCount = document.getElementById('v-count');
+  if (rCount) rCount.max = max;
+  if (vCount) vCount.dataset.max = max;
+  if (state.count > max) {
+    state.count = max;
+    ensureAssignments();
+    recomputeAuto();
+  }
+  if (rCount) rCount.value = state.count;
+  if (vCount) vCount.value = state.count;
+  // Auto-derived spacing/scale depend on aspect — recompute and refresh UI.
+  recomputeAuto();
+  bindUIFromState();
 }
 
 function loadDefaults() {
@@ -3987,7 +4016,7 @@ async function generateWebMBlob() {
   const frameCount = Math.ceil((totalMs / 1000) * fps);
   for (let f = 0; f <= frameCount; f++) {
     const t = (f / fps) * 1000;
-    drawFrame(ctx, w, h, t, iconImages);
+    drawFrameSupersampled(ctx, w, h, t, iconImages);
     document.getElementById('recTime').textContent = (t / 1000).toFixed(1) + 's';
     await new Promise(r => setTimeout(r, 1000 / fps));
   }
@@ -4099,7 +4128,7 @@ async function exportMP4() {
   for (let f = 0; f <= frameCount; f++) {
     if (encoderError) break;
     const t = (f / fps) * 1000;
-    drawFrame(ctx, outW, outH, t, iconImages);
+    drawFrameSupersampled(ctx, outW, outH, t, iconImages);
     // Use a keyframe at the start and roughly every 2 seconds
     // Keyframes: every frame in High mode (q.keyframeIntervalSec = 0) for visually-lossless output;
     // otherwise periodic keyframes for normal compression
@@ -4143,10 +4172,17 @@ function getIconRenderSize(w, h) {
 // Pre-rasterize each icon to a canvas-sized bitmap so ctx.drawImage doesn't
 // upscale a low-res SVG raster (which causes the fuzziness). The renderSize
 // param tells us how big each icon will appear in the final exported frame.
+// Padding ratio added around each baked icon so that the downsample filter
+// in drawFrame has fringe room to anti-alias edge pixels (otherwise circle
+// shapes that touch the SVG viewBox produce stair-stepped edges in exports).
+const ICON_RASTER_PAD_RATIO = 0.06; // 6% transparent margin on each side
+
 async function renderIconsToImages(renderSize) {
   const out = [];
-  // Render at 2x for a quality margin (sharp on retina, no aliasing on downscale)
-  const targetPx = Math.max(64, Math.ceil(renderSize * 2));
+  // Render at 6x with a high floor so even tiny on-screen icons start from a
+  // very large bitmap. Aggressive supersampling like this is the single most
+  // effective lever for clean circular edges after downsample.
+  const targetPx = Math.max(512, Math.ceil(renderSize * 6));
   for (let i = 0; i < state.count; i++) {
     const id = state.assignments[i];
     if (!id) { out.push(null); continue; }
@@ -4156,6 +4192,8 @@ async function renderIconsToImages(renderSize) {
     // Inject explicit width/height so the browser rasterizes at our target size.
     // Most defaults have a viewBox like "0 0 100 100" but no size attributes,
     // which makes browsers pick a default 300px raster — way too low.
+    const pad = Math.max(2, Math.round(targetPx * ICON_RASTER_PAD_RATIO));
+    const fullPx = targetPx + pad * 2;
     let svgText = icon.svg;
     if (/<svg\b[^>]*>/i.test(svgText)) {
       svgText = svgText.replace(/<svg\b([^>]*)>/i, (m, attrs) => {
@@ -4174,14 +4212,18 @@ async function renderIconsToImages(renderSize) {
         im.onerror = rej;
         im.src = url;
       });
-      // Bake into a canvas so drawImage downstream is a fast bitmap blit
+      // Bake into a padded canvas so drawImage downstream is a fast bitmap blit,
+      // and the transparent margin gives the downsample filter fringe room.
       const c = document.createElement('canvas');
-      c.width = targetPx;
-      c.height = targetPx;
+      c.width = fullPx;
+      c.height = fullPx;
       const cx = c.getContext('2d');
       cx.imageSmoothingEnabled = true;
       cx.imageSmoothingQuality = 'high';
-      cx.drawImage(img, 0, 0, targetPx, targetPx);
+      cx.drawImage(img, pad, pad, targetPx, targetPx);
+      // Ratio between the full bitmap and the inner icon area, used by drawFrame
+      // to draw the bitmap slightly larger than the slot so AA pixels survive.
+      c.padScale = fullPx / targetPx;
       out.push(c);
     } catch (e) {
       out.push(null);
@@ -4216,6 +4258,62 @@ function cubicBezier(x1, y1, x2, y2, t) {
 function bezierAxis(t, p1, p2) { const u = 1 - t; return 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t; }
 function bezierDerivative(t, p1, p2) { const u = 1 - t; return 3 * u * u * p1 + 6 * u * t * (p2 - p1) + 3 * t * t * (1 - p2); }
 
+// 4x supersampling: every export frame is composed at four times the output
+// resolution into an offscreen buffer, then downsampled into the destination
+// canvas with high-quality smoothing. Each output pixel averages a 4x4 block
+// from the high-res render — produces clean curves even when the on-screen
+// icon ends up only ~60 pixels wide. Heavy on memory (16x the canvas area)
+// but per user direction, quality > size.
+const FRAME_SUPERSAMPLE = 4;
+function drawFrameSupersampled(ctx, w, h, timeMs, iconImages) {
+  // Cap the supersampled buffer at ~64 MP so 4K (Large) exports don't OOM.
+  // For Standard 1080p, SS stays at the full 4x. For 4K, it drops to ~2x.
+  const MAX_SS_PIXELS = 64 * 1024 * 1024;
+  let ss = FRAME_SUPERSAMPLE;
+  while (ss > 1 && w * h * ss * ss > MAX_SS_PIXELS) ss--;
+  const ssW = Math.round(w * ss);
+  const ssH = Math.round(h * ss);
+  if (!ctx._ssCanvas || ctx._ssCanvas.width !== ssW || ctx._ssCanvas.height !== ssH) {
+    ctx._ssCanvas = document.createElement('canvas');
+    ctx._ssCanvas.width = ssW;
+    ctx._ssCanvas.height = ssH;
+    ctx._ssCtx = ctx._ssCanvas.getContext('2d');
+    ctx._ssCtx.imageSmoothingEnabled = true;
+    ctx._ssCtx.imageSmoothingQuality = 'high';
+  }
+  drawFrame(ctx._ssCtx, ssW, ssH, timeMs, iconImages);
+  // Chrome's single-shot canvas→canvas drawImage at large downsample ratios
+  // skips proper averaging and produces binary edges. Halving-pyramid downsample
+  // (each step is a 2:1 reduction, which the browser DOES honor as averaging)
+  // gives correct anti-aliased edges at GPU speed.
+  ctx.clearRect(0, 0, w, h);
+  halvingDownsample(ctx, ctx._ssCanvas, w, h);
+}
+
+function halvingDownsample(dstCtx, srcCanvas, dstW, dstH) {
+  let curCanvas = srcCanvas;
+  let curW = srcCanvas.width;
+  let curH = srcCanvas.height;
+  // Keep halving until we're within 2x of the target, then do the final draw.
+  while (curW >= dstW * 2 && curH >= dstH * 2) {
+    const nextW = Math.max(dstW, Math.floor(curW / 2));
+    const nextH = Math.max(dstH, Math.floor(curH / 2));
+    const tmp = document.createElement('canvas');
+    tmp.width = nextW;
+    tmp.height = nextH;
+    const tctx = tmp.getContext('2d');
+    tctx.imageSmoothingEnabled = true;
+    tctx.imageSmoothingQuality = 'high';
+    tctx.drawImage(curCanvas, 0, 0, curW, curH, 0, 0, nextW, nextH);
+    curCanvas = tmp;
+    curW = nextW;
+    curH = nextH;
+  }
+  dstCtx.imageSmoothingEnabled = true;
+  dstCtx.imageSmoothingQuality = 'high';
+  dstCtx.drawImage(curCanvas, 0, 0, curW, curH, 0, 0, dstW, dstH);
+}
+
 function drawFrame(ctx, w, h, timeMs, iconImages) {
   if (state.bgOn) { ctx.fillStyle = state.bgColor; ctx.fillRect(0, 0, w, h); }
   else ctx.clearRect(0, 0, w, h);
@@ -4249,7 +4347,11 @@ function drawFrame(ctx, w, h, timeMs, iconImages) {
     ctx.save();
     ctx.globalAlpha = opacity;
     const drawSize = slotSize * scale;
-    ctx.drawImage(img, offsetX + (cx - drawSize / 2) * s, offsetY + (cy - drawSize / 2) * s, drawSize * s, drawSize * s);
+    // Account for the transparent margin baked into the bitmap so the visible
+    // icon still occupies `drawSize` while AA fringe pixels are preserved.
+    const padScale = img.padScale || 1;
+    const destSize = drawSize * padScale;
+    ctx.drawImage(img, offsetX + (cx - destSize / 2) * s, offsetY + (cy - destSize / 2) * s, destSize * s, destSize * s);
     ctx.restore();
   }
 }
@@ -4270,7 +4372,6 @@ function buildFilename(ext, extra) {
   const parts = ['product-logos-slide-tool'];
   if (extra) parts.push(extra);
   parts.push(state.resolution || '1920x1080');
-  parts.push((state.quality || 'medium') + '-q');
   parts.push(APP_VERSION);
   return parts.join('_') + '.' + ext;
 }
@@ -4385,7 +4486,7 @@ async function exportPNG() {
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
   const imgs = await renderIconsToImages(getIconRenderSize(w, h));
-  drawFrame(ctx, w, h, state.totalDuration + 1000, imgs);
+  drawFrameSupersampled(ctx, w, h, state.totalDuration + 1000, imgs);
   canvas.toBlob(blob => {
     downloadBlob(blob, buildFilename('png'));
     showToast('PNG exported');
@@ -4404,7 +4505,7 @@ async function exportGIF() {
   // GIFs are still capped (they get enormous fast) but the cap follows quality
   const gifW = Math.min(w, q.gifMaxW);
   const gifH = Math.round(gifW * (h / w));
-  const fps = state.quality === 'high' ? 30 : 25;
+  const fps = 30;
   const delayMs = Math.round(1000 / fps);
 
   const canvas = document.createElement('canvas');
@@ -4423,7 +4524,7 @@ async function exportGIF() {
 
   for (let f = 0; f <= frameCount; f++) {
     const t = (f / fps) * 1000;
-    drawFrame(ctx, gifW, gifH, t, imgs);
+    drawFrameSupersampled(ctx, gifW, gifH, t, imgs);
     const data = ctx.getImageData(0, 0, gifW, gifH).data;
     // Quality-tuned palette: more colors + finer color space at higher quality
     const palette = quantize(data, q.gifColors, { format: q.gifKsize });
@@ -4446,7 +4547,7 @@ function savePreset() {
       duration: state.duration, stagger: state.stagger, slideDistance: state.slideDistance,
       startScale: state.startScale, easing: state.easing, bgOn: state.bgOn, bgColor: state.bgColor,
       aspectRatio: state.aspectRatio,
-      resolution: state.resolution, fps: state.fps, quality: state.quality, library: state.library, assignments: state.assignments,
+      resolution: state.resolution, fps: state.fps, library: state.library, assignments: state.assignments,
     },
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -4660,7 +4761,6 @@ function bindUIFromState() {
   document.getElementById('bg-off').classList.toggle('active', !state.bgOn);
   document.getElementById('s-resolution').value = state.resolution;
   document.getElementById('s-fps').value = state.fps;
-  document.getElementById('s-quality').value = state.quality || 'medium';
   applyAutoUI();
   requestAnimationFrame(updateBgIndicator);
 }
@@ -4765,7 +4865,8 @@ function bindEvents() {
     const r = document.getElementById(rid);
     const v = document.getElementById(vid);
     const min = +r.min;
-    const max = +r.max;
+    // max is read live so the icon-count cap can shift with aspect ratio.
+    const getMax = () => +r.max;
     const step = +r.step || 1;
     const isSeconds = v.dataset.format === 'seconds';
 
@@ -4808,6 +4909,7 @@ function bindEvents() {
       let n = parseVal(v.value);
       if (isNaN(n)) { v.value = formatVal(state[key]); return; }
       // Clamp
+      const max = getMax();
       if (n < min) n = min;
       if (n > max) n = max;
       // Snap to step
@@ -4916,7 +5018,6 @@ function bindEvents() {
 
   document.getElementById('s-resolution').onchange = (e) => { state.resolution = e.target.value; persist(); };
   document.getElementById('s-fps').onchange = (e) => { state.fps = +e.target.value; persist(); };
-  document.getElementById('s-quality').onchange = (e) => { state.quality = e.target.value; persist(); };
 
   document.getElementById('btn-load-defaults').onclick = loadDefaults;
   document.getElementById('btn-clear-lib').onclick = () => {
