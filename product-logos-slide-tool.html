@@ -94,15 +94,105 @@
   .stage-area {
     position: absolute;
     inset: 24px;
+    /* Reserve room at the bottom so the timeline doesn't sit under the
+       fixed-position aspect-switch / play / loop bar (which lives at
+       bottom: 24px and is ~42px tall). */
+    bottom: 92px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
     transition: right 0.28s cubic-bezier(0.4, 0.14, 0.3, 1);
   }
   .app[data-panel-state="docked"] .stage-area { right: 388px; }
   .app[data-panel-state="undocked"] .stage-area { right: 24px; }
 
+  /* Timeline: four segment buttons + three inter-segment gap blocks. Each segment
+     shows a bar above its label + duration dropdown; the active segment fills its
+     bar with the accent color. Each gap shows a short bar above a pause dropdown. */
+  .timeline {
+    display: flex;
+    flex: none;
+    gap: 14px;
+    padding: 0 4px;
+    user-select: none;
+    align-items: stretch;
+  }
+  .timeline-seg {
+    flex: 1 1 0;
+    min-width: 0;
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: stretch;
+    font: inherit;
+    color: var(--muted-text, #888);
+  }
+  .timeline-gap {
+    flex: 0 0 110px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: stretch;
+  }
+  .timeline-bar {
+    height: 4px;
+    border-radius: 999px;
+    background: var(--stage-border, #e3e3e3);
+    overflow: hidden;
+    position: relative;
+  }
+  .timeline-bar--gap { background: var(--stage-border, #d8d8d8); opacity: 0.7; }
+  .timeline-bar-fill {
+    position: absolute;
+    inset: 0;
+    background: var(--accent, #1d4ed8);
+    width: 0%;
+    transition: width 0.18s ease;
+  }
+  .timeline-seg.active .timeline-bar-fill { width: 100%; }
+  .timeline-meta {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 24px;
+  }
+  .timeline-label {
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .timeline-seg.active .timeline-label { color: var(--text, #111); font-weight: 600; }
+  .timeline-seg:not(.active):hover .timeline-bar { background: var(--accent, #1d4ed8); opacity: 0.35; }
+  .timeline-dur, .timeline-pause {
+    appearance: none;
+    -webkit-appearance: none;
+    background: var(--button-secondary-bg);
+    color: var(--text);
+    border: 1px solid var(--button-secondary-border);
+    border-radius: 999px;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 3px 10px;
+    cursor: pointer;
+  }
+  .timeline-dur:hover, .timeline-pause:hover { border-color: var(--accent); }
+  .timeline-pause { color: var(--text-secondary); }
+
   .stage {
     position: relative;
+    flex: 1;
+    min-height: 0;
     width: 100%;
-    height: 100%;
     background: var(--stage-bg);
     border: 1px solid var(--stage-border);
     border-radius: 16px;
@@ -151,7 +241,6 @@
     justify-content: center;
     cursor: pointer;
     position: relative;
-    will-change: transform, opacity;
     border-radius: 22%;
     transition: outline 0.12s ease;
     outline: 0px solid transparent;
@@ -943,6 +1032,36 @@
     margin: 0 2px;
     min-width: 56px;
   }
+
+  /* Export segment range toggle. Five mutually-exclusive buttons: 1/2/3/4/ALL. */
+  .seg-toggle {
+    display: inline-flex;
+    align-items: center;
+    background: var(--button-secondary-bg);
+    border: 1px solid var(--button-secondary-border);
+    border-radius: 999px;
+    padding: 2px;
+    gap: 2px;
+  }
+  .seg-toggle button {
+    background: transparent;
+    color: var(--text-secondary);
+    border: none;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: inherit;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    border-radius: 999px;
+    min-width: 28px;
+    transition: all 0.16s ease;
+  }
+  .seg-toggle button.active {
+    background: var(--accent);
+    color: #fff;
+  }
+  .seg-toggle button:not(.active):hover { color: var(--text); }
   .aspect-switch button:not(.active) {
     background: transparent;
     color: var(--text-secondary);
@@ -998,6 +1117,23 @@
   .play-switch button.loop:hover {
     background: var(--button-secondary-hover);
     color: var(--text);
+  }
+  /* PLAY ALL pill — solid neutral that contrasts with both PLAY (blue) and LOOP (outlined).
+     Fixed colors per theme (not bound to --text, which flips). */
+  .play-switch button.play-all {
+    background: #2a2a2a;
+    color: #fff;
+  }
+  .play-switch button.play-all:hover { background: #000; }
+  .play-switch button.play-all.active { background: var(--accent); }
+  :root[data-theme="dark"] .play-switch button.play-all {
+    background: #f5f5f7;
+    color: #1d1d1f;
+  }
+  :root[data-theme="dark"] .play-switch button.play-all:hover { background: #ffffff; }
+  :root[data-theme="dark"] .play-switch button.play-all.active {
+    background: var(--accent);
+    color: #fff;
   }
   /* Disabled state — when the other button is active */
   .play-switch button:disabled {
@@ -1098,6 +1234,54 @@
         </div>
       </div>
     </div>
+    <div class="timeline" id="timeline">
+      <button class="timeline-seg active" type="button" data-segment="logosIn">
+        <div class="timeline-bar"><div class="timeline-bar-fill"></div></div>
+        <div class="timeline-meta">
+          <span class="timeline-label">Logos Intro</span>
+          <select class="timeline-dur" data-dur="logosIn"></select>
+        </div>
+      </button>
+      <div class="timeline-gap">
+        <div class="timeline-bar timeline-bar--gap"></div>
+        <div class="timeline-meta">
+          <select class="timeline-pause" data-pause="logosInToOut"></select>
+        </div>
+      </div>
+      <button class="timeline-seg" type="button" data-segment="logosOut">
+        <div class="timeline-bar"><div class="timeline-bar-fill"></div></div>
+        <div class="timeline-meta">
+          <span class="timeline-label">Logos Outro</span>
+          <select class="timeline-dur" data-dur="logosOut"></select>
+        </div>
+      </button>
+      <div class="timeline-gap">
+        <div class="timeline-bar timeline-bar--gap"></div>
+        <div class="timeline-meta">
+          <select class="timeline-pause" data-pause="logosOutToA8cIn"></select>
+        </div>
+      </div>
+      <button class="timeline-seg" type="button" data-segment="a8cIn">
+        <div class="timeline-bar"><div class="timeline-bar-fill"></div></div>
+        <div class="timeline-meta">
+          <span class="timeline-label">A8C Intro</span>
+          <select class="timeline-dur" data-dur="a8cIn"></select>
+        </div>
+      </button>
+      <div class="timeline-gap">
+        <div class="timeline-bar timeline-bar--gap"></div>
+        <div class="timeline-meta">
+          <select class="timeline-pause" data-pause="a8cInToOut"></select>
+        </div>
+      </div>
+      <button class="timeline-seg" type="button" data-segment="a8cOut">
+        <div class="timeline-bar"><div class="timeline-bar-fill"></div></div>
+        <div class="timeline-meta">
+          <span class="timeline-label">A8C Outro</span>
+          <select class="timeline-dur" data-dur="a8cOut"></select>
+        </div>
+      </button>
+    </div>
   </div>
 
   <div class="panel" id="panel">
@@ -1184,9 +1368,30 @@
         </div>
       </div>
 
-      <div class="section open" data-section="animation">
+      <!-- A8C wordmark — lives in its own section because the wordmark has built-in
+           letter spacing and only needs an overall scale. Spacing/Icons-count from
+           Composition apply only to the logo icons, not to A8C. -->
+      <div class="section open" data-section="a8c">
         <div class="section-header" data-toggle>
-          <h2>Animation</h2>
+          <h2>A8C</h2>
+          <span class="chev">›</span>
+        </div>
+        <div class="section-body">
+          <div class="ctrl">
+            <label>Scale</label>
+            <div class="slider">
+              <div class="bar"></div>
+              <div class="ticks"></div>
+              <input type="range" id="r-a8cscale" min="10" max="80" step="1" value="40">
+            </div>
+            <input type="text" class="val" id="v-a8cscale" value="40" data-min="10" data-max="80" data-step="1">
+          </div>
+        </div>
+      </div>
+
+      <div class="section open" data-section="animate-in" data-segment="logosIn">
+        <div class="section-header" data-toggle>
+          <h2>Animate IN</h2>
           <span class="chev">›</span>
         </div>
         <div class="section-body">
@@ -1252,6 +1457,149 @@
         </div>
       </div>
 
+      <!-- Three additional animation segments. Same structure as Animate IN but each
+           has its own slider IDs and writes to state.segments[<segment>]. Collapsed
+           by default per the spec. -->
+      <div class="section" data-section="animate-out" data-segment="logosOut">
+        <div class="section-header" data-toggle>
+          <h2>Animate OUT</h2>
+          <span class="chev">›</span>
+        </div>
+        <div class="section-body">
+          <div class="row">
+            <label>Order of movement</label>
+            <div class="seg-toggle order-toggle" data-order-seg="logosOut">
+              <button type="button" data-order="default" class="active">Inner first</button>
+              <button type="button" data-order="reversed">Outer first</button>
+            </div>
+          </div>
+          <div class="ctrl" data-auto-key="duration">
+            <div class="ctrl-label"><span class="name">Speed</span><button class="auto-toggle" type="button">AUTO</button></div>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-logosout-duration" min="200" max="3000" step="50" value="700"></div>
+            <input type="text" class="val" id="v-logosout-duration" value="0.7s" data-format="seconds">
+          </div>
+          <div class="ctrl" data-auto-key="stagger">
+            <div class="ctrl-label"><span class="name">Stagger</span><button class="auto-toggle" type="button">AUTO</button></div>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-logosout-stagger" min="0" max="100" step="1" value="20"></div>
+            <input type="text" class="val" id="v-logosout-stagger" value="20" data-min="0" data-max="100" data-step="1">
+          </div>
+          <div class="ctrl" data-auto-key="slideDistance">
+            <div class="ctrl-label"><span class="name">Slide dist.</span><button class="auto-toggle" type="button">AUTO</button></div>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-logosout-slide" min="-50" max="50" step="1" value="0"></div>
+            <input type="text" class="val" id="v-logosout-slide" value="0" data-min="-50" data-max="50" data-step="1">
+          </div>
+          <div class="ctrl" data-auto-key="startScale">
+            <div class="ctrl-label"><span class="name">Start scale</span><button class="auto-toggle" type="button">AUTO</button></div>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-logosout-startscale" min="0" max="100" step="5" value="40"></div>
+            <input type="text" class="val" id="v-logosout-startscale" value="40" data-min="0" data-max="100" data-step="5">
+          </div>
+          <div class="row" data-auto-key="easing">
+            <div class="ctrl-label" style="flex: none; width: 78px;"><span class="name">Easing</span><button class="auto-toggle" type="button">AUTO</button></div>
+            <select id="s-logosout-easing">
+              <option value="__auto__" selected>Auto (Original)</option>
+              <option value="cubic-bezier(0.28, 0, 0, 1)">Original</option>
+              <option value="linear">Linear</option>
+              <optgroup label="Standard">
+                <option value="cubic-bezier(0.42, 0, 1, 1)">Ease in</option>
+                <option value="cubic-bezier(0, 0, 0.58, 1)">Ease out</option>
+                <option value="cubic-bezier(0.42, 0, 0.58, 1)">Ease in and out</option>
+              </optgroup>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="section" data-section="a8c-in" data-segment="a8cIn">
+        <div class="section-header" data-toggle>
+          <h2>A8C Intro</h2>
+          <span class="chev">›</span>
+        </div>
+        <div class="section-body">
+          <div class="ctrl" data-auto-key="duration">
+            <div class="ctrl-label"><span class="name">Speed</span><button class="auto-toggle" type="button">AUTO</button></div>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-a8cin-duration" min="200" max="3000" step="50" value="700"></div>
+            <input type="text" class="val" id="v-a8cin-duration" value="0.7s" data-format="seconds">
+          </div>
+          <div class="ctrl" data-auto-key="stagger">
+            <div class="ctrl-label"><span class="name">Stagger</span><button class="auto-toggle" type="button">AUTO</button></div>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-a8cin-stagger" min="0" max="100" step="1" value="20"></div>
+            <input type="text" class="val" id="v-a8cin-stagger" value="20" data-min="0" data-max="100" data-step="1">
+          </div>
+          <div class="ctrl" data-auto-key="slideDistance">
+            <div class="ctrl-label"><span class="name">Slide dist.</span><button class="auto-toggle" type="button">AUTO</button></div>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-a8cin-slide" min="-50" max="50" step="1" value="0"></div>
+            <input type="text" class="val" id="v-a8cin-slide" value="0" data-min="-50" data-max="50" data-step="1">
+          </div>
+          <div class="ctrl" data-auto-key="startScale">
+            <div class="ctrl-label"><span class="name">Start scale</span><button class="auto-toggle" type="button">AUTO</button></div>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-a8cin-startscale" min="0" max="100" step="5" value="40"></div>
+            <input type="text" class="val" id="v-a8cin-startscale" value="40" data-min="0" data-max="100" data-step="5">
+          </div>
+          <div class="row" data-auto-key="easing">
+            <div class="ctrl-label" style="flex: none; width: 78px;"><span class="name">Easing</span><button class="auto-toggle" type="button">AUTO</button></div>
+            <select id="s-a8cin-easing">
+              <option value="__auto__" selected>Auto (Original)</option>
+              <option value="cubic-bezier(0.28, 0, 0, 1)">Original</option>
+              <option value="linear">Linear</option>
+              <optgroup label="Standard">
+                <option value="cubic-bezier(0.42, 0, 1, 1)">Ease in</option>
+                <option value="cubic-bezier(0, 0, 0.58, 1)">Ease out</option>
+                <option value="cubic-bezier(0.42, 0, 0.58, 1)">Ease in and out</option>
+              </optgroup>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="section" data-section="a8c-out" data-segment="a8cOut">
+        <div class="section-header" data-toggle>
+          <h2>A8C Outro</h2>
+          <span class="chev">›</span>
+        </div>
+        <div class="section-body">
+          <div class="row">
+            <label>Order of movement</label>
+            <div class="seg-toggle order-toggle" data-order-seg="a8cOut">
+              <button type="button" data-order="default" class="active">Inner first</button>
+              <button type="button" data-order="reversed">Outer first</button>
+            </div>
+          </div>
+          <div class="ctrl" data-auto-key="duration">
+            <div class="ctrl-label"><span class="name">Speed</span><button class="auto-toggle" type="button">AUTO</button></div>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-a8cout-duration" min="200" max="3000" step="50" value="700"></div>
+            <input type="text" class="val" id="v-a8cout-duration" value="0.7s" data-format="seconds">
+          </div>
+          <div class="ctrl" data-auto-key="stagger">
+            <div class="ctrl-label"><span class="name">Stagger</span><button class="auto-toggle" type="button">AUTO</button></div>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-a8cout-stagger" min="0" max="100" step="1" value="20"></div>
+            <input type="text" class="val" id="v-a8cout-stagger" value="20" data-min="0" data-max="100" data-step="1">
+          </div>
+          <div class="ctrl" data-auto-key="slideDistance">
+            <div class="ctrl-label"><span class="name">Slide dist.</span><button class="auto-toggle" type="button">AUTO</button></div>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-a8cout-slide" min="-50" max="50" step="1" value="0"></div>
+            <input type="text" class="val" id="v-a8cout-slide" value="0" data-min="-50" data-max="50" data-step="1">
+          </div>
+          <div class="ctrl" data-auto-key="startScale">
+            <div class="ctrl-label"><span class="name">Start scale</span><button class="auto-toggle" type="button">AUTO</button></div>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-a8cout-startscale" min="0" max="100" step="5" value="40"></div>
+            <input type="text" class="val" id="v-a8cout-startscale" value="40" data-min="0" data-max="100" data-step="5">
+          </div>
+          <div class="row" data-auto-key="easing">
+            <div class="ctrl-label" style="flex: none; width: 78px;"><span class="name">Easing</span><button class="auto-toggle" type="button">AUTO</button></div>
+            <select id="s-a8cout-easing">
+              <option value="__auto__" selected>Auto (Original)</option>
+              <option value="cubic-bezier(0.28, 0, 0, 1)">Original</option>
+              <option value="linear">Linear</option>
+              <optgroup label="Standard">
+                <option value="cubic-bezier(0.42, 0, 1, 1)">Ease in</option>
+                <option value="cubic-bezier(0, 0, 0.58, 1)">Ease out</option>
+                <option value="cubic-bezier(0.42, 0, 0.58, 1)">Ease in and out</option>
+              </optgroup>
+            </select>
+          </div>
+        </div>
+      </div>
+
       <div class="section open" data-section="background">
         <div class="section-header" data-toggle>
           <h2>Background</h2>
@@ -1308,19 +1656,21 @@
             <select id="s-resolution"></select>
           </div>
           <div class="row">
-            <label>Quality</label>
-            <select id="s-quality">
-              <option value="low">Low</option>
-              <option value="medium" selected>Medium</option>
-              <option value="high">High</option>
-            </select>
-          </div>
-          <div class="row">
             <label>FPS</label>
             <select id="s-fps">
               <option value="30">30</option>
               <option value="60" selected>60</option>
             </select>
+          </div>
+          <div class="row">
+            <label>Segments</label>
+            <div class="seg-toggle" id="exportRange">
+              <button type="button" data-range="1">1</button>
+              <button type="button" data-range="2">2</button>
+              <button type="button" data-range="3">3</button>
+              <button type="button" data-range="4">4</button>
+              <button type="button" data-range="all" class="active">ALL</button>
+            </div>
           </div>
           <div class="button-stack">
             <button class="btn primary full" id="btn-export-webm">↓ Export WebM</button>
@@ -1372,8 +1722,9 @@
   </div>
 
   <div class="play-switch" id="playSwitch">
-    <button id="btn-play" class="play">PLAY</button>
-    <button id="btn-loop" class="loop">LOOP</button>
+    <button id="btn-play" class="play">PLAY SEGMENT</button>
+    <button id="btn-loop" class="loop">LOOP SEGMENT</button>
+    <button id="btn-play-all" class="play-all">PLAY ALL</button>
   </div>
 </div>
 
@@ -3312,19 +3663,38 @@ If you want to offset all timestamps of a track such that the first one is zero,
 const STORAGE_KEY = 'icon-stage-v2';
 
 const state = {
-  count: 15, spacing: 18, scale: 75, stageZoom: 50,
+  count: 15, spacing: 18, scale: 75, a8cScale: 40, stageZoom: 50,
   duration: 1000, stagger: 50, slideDistance: 36, startScale: 10,
   easing: 'cubic-bezier(0.28, 0, 0, 1)',
   // Per-slider "auto" mode flags. true = compute from icon count, false = user-controlled.
   // Default: every slider auto on first load. stageZoom is intentionally not in here -
   // it's a viewport-only control with no anchor data.
+  // This top-level `auto` mirrors state.segments[state.activeSegment].auto so legacy
+  // read sites keep working unchanged.
   auto: {
     spacing: true, scale: true, duration: true, stagger: true,
     slideDistance: true, startScale: true, easing: true,
   },
+  // Four animation segments — each owns its own duration / stagger / slideDistance /
+  // startScale / easing + per-key auto flags. The active segment's params are mirrored
+  // to top-level state (state.duration, state.stagger, ...) so the existing render/
+  // export code paths keep working without per-call indirection.
+  activeSegment: 'logosIn',
+  segments: {
+    logosIn:  { duration: 700, stagger: 20, slideDistance: 0, startScale: 40, easing: 'cubic-bezier(0.28, 0, 0, 1)', auto: { duration: true, stagger: true, slideDistance: true, startScale: true, easing: true } },
+    logosOut: { duration: 700, stagger: 20, slideDistance: 0, startScale: 40, easing: 'cubic-bezier(0.28, 0, 0, 1)', auto: { duration: true, stagger: true, slideDistance: true, startScale: true, easing: true } },
+    a8cIn:    { duration: 700, stagger: 20, slideDistance: 0, startScale: 40, easing: 'cubic-bezier(0.28, 0, 0, 1)', auto: { duration: true, stagger: true, slideDistance: true, startScale: true, easing: true } },
+    a8cOut:   { duration: 700, stagger: 20, slideDistance: 0, startScale: 40, easing: 'cubic-bezier(0.28, 0, 0, 1)', auto: { duration: true, stagger: true, slideDistance: true, startScale: true, easing: true } },
+  },
   bgOn: true, bgColor: '#ffffff',
   aspectRatio: '16:9',
-  resolution: '1920x1080', fps: 60, quality: 'medium',
+  resolution: '1920x1080', fps: 60,
+  // Which segment(s) the exporters render: '1'/'2'/'3'/'4' = a single segment
+  // (logosIn/logosOut/a8cIn/a8cOut respectively), 'all' = the full 4-segment sequence.
+  exportRange: 'all',
+  // Pause length (seconds) between consecutive segments — applied both in the
+  // live PLAY ALL sequencer and in the export timeline.
+  segmentPauses: { logosInToOut: 0.5, logosOutToA8cIn: 0.5, a8cInToOut: 0.5 },
   library: [], assignments: [],
   isPlaying: false, playStartTime: 0,
   editingSlot: -1,
@@ -3348,40 +3718,70 @@ const AUTO_ANCHORS = {
   25: { spacing: 12, scale: 51, duration: 1000, stagger: 20, slideDistance: 34, startScale: 10 },
 };
 const AUTO_ANCHOR_COUNTS = Object.keys(AUTO_ANCHORS).map(Number).sort((a, b) => a - b);
+
+// Spacing/scale overrides for vertical & square aspects, which clip at the
+// 25-icon defaults. Tuned so that at the 18-icon cap, spacing=10 / scale=53
+// fit cleanly inside 9:16, 4:5, and 1:1 frames.
+const AUTO_ANCHORS_RESTRICTED = {
+  2:  { spacing: 25, scale: 90 },
+  5:  { spacing: 23, scale: 90 },
+  9:  { spacing: 19, scale: 80 },
+  15: { spacing: 14, scale: 65 },
+  18: { spacing: 10, scale: 53 },
+};
+const AUTO_ANCHOR_COUNTS_RESTRICTED = Object.keys(AUTO_ANCHORS_RESTRICTED).map(Number).sort((a, b) => a - b);
+const RESTRICTED_AUTO_KEYS = new Set(['spacing', 'scale']);
+
 // Easing in auto mode = the "Original" preset.
 const AUTO_EASING = 'cubic-bezier(0.28, 0, 0, 1)';
 
 // Compute the auto-derived value for a single key at a given icon count.
 function getAutoValue(key, n) {
-  const counts = AUTO_ANCHOR_COUNTS;
+  const restricted = RESTRICTED_AUTO_KEYS.has(key)
+    && (state.aspectRatio === '9:16' || state.aspectRatio === '4:5' || state.aspectRatio === '1:1');
+  const table  = restricted ? AUTO_ANCHORS_RESTRICTED : AUTO_ANCHORS;
+  const counts = restricted ? AUTO_ANCHOR_COUNTS_RESTRICTED : AUTO_ANCHOR_COUNTS;
   // Clamp below/above
-  if (n <= counts[0])               return AUTO_ANCHORS[counts[0]][key];
-  if (n >= counts[counts.length-1]) return AUTO_ANCHORS[counts[counts.length-1]][key];
+  if (n <= counts[0])               return table[counts[0]][key];
+  if (n >= counts[counts.length-1]) return table[counts[counts.length-1]][key];
   // Find the two anchors that bracket n
   for (let i = 0; i < counts.length - 1; i++) {
     const lo = counts[i], hi = counts[i + 1];
     if (n >= lo && n <= hi) {
       const t = (n - lo) / (hi - lo);
-      const a = AUTO_ANCHORS[lo][key];
-      const b = AUTO_ANCHORS[hi][key];
+      const a = table[lo][key];
+      const b = table[hi][key];
       return Math.round(a + (b - a) * t);
     }
   }
-  return AUTO_ANCHORS[counts[0]][key]; // unreachable fallback
+  return table[counts[0]][key]; // unreachable fallback
 }
 
 // For every slider currently in auto mode, recompute its value based on state.count
 // and reflect that into both state and the UI. Called whenever the icon count changes.
+// Composition-level autos (spacing, scale) live on the top-level state.auto; per-segment
+// animation autos live on state.segments[seg].auto.
 function recomputeAuto() {
   const n = state.count;
-  const autoKeys = ['spacing', 'scale', 'duration', 'stagger', 'slideDistance', 'startScale'];
-  autoKeys.forEach(key => {
-    if (state.auto[key]) {
-      state[key] = getAutoValue(key, n);
-    }
+  ['spacing', 'scale'].forEach(key => {
+    if (state.auto[key]) state[key] = getAutoValue(key, n);
   });
-  if (state.auto.easing) {
-    state.easing = AUTO_EASING;
+  if (state.segments) {
+    SEGMENT_KEYS.forEach(seg => {
+      const segObj = state.segments[seg];
+      if (!segObj) return;
+      ANIM_FIELDS.forEach(key => {
+        if (!segObj.auto || !segObj.auto[key]) return;
+        segObj[key] = key === 'easing' ? AUTO_EASING : getAutoValue(key, n);
+      });
+    });
+    // Mirror active segment back to legacy top-level state.
+    syncTopFromActiveSegment();
+  } else {
+    // Fallback for early-call ordering (shouldn't normally happen).
+    ANIM_FIELDS.forEach(key => {
+      if (state.auto[key]) state[key] = key === 'easing' ? AUTO_EASING : getAutoValue(key, n);
+    });
   }
 }
 
@@ -3402,19 +3802,20 @@ function getCanvas() {
   return { w: r.w, h: r.h };
 }
 
-// Per-format quality knobs. Tuned so:
-//   - Low: small files, web-sharable
-//   - Medium: visually crisp, the previous default
-//   - High: visually lossless, large files (no inter-frame compression artifacts)
-const QUALITY_PRESETS = {
-  low:    { videoBpp: 0.05, gifMaxW: 720,  gifColors: 128, gifKsize: 'rgb444', keyframeIntervalSec: 2 },
-  medium: { videoBpp: 0.15, gifMaxW: 1280, gifColors: 256, gifKsize: 'rgb444', keyframeIntervalSec: 2 },
-  high:   { videoBpp: 0.40, gifMaxW: 1920, gifColors: 256, gifKsize: 'rgb565', keyframeIntervalSec: 0 },
-  // keyframeIntervalSec: 0 means "every frame is a keyframe" — no inter-frame loss
-};
-function getQuality() {
-  return QUALITY_PRESETS[state.quality] || QUALITY_PRESETS.medium;
+// Vertical/square ratios can't fit more than 18 icons without clipping.
+const COUNT_LIMIT_RESTRICTED = 18;
+const COUNT_LIMIT_DEFAULT = 25;
+function getMaxCountForAspect(ar) {
+  return (ar === '9:16' || ar === '4:5' || ar === '1:1')
+    ? COUNT_LIMIT_RESTRICTED : COUNT_LIMIT_DEFAULT;
 }
+
+// Per-format quality knobs — always the maximum fidelity tier:
+// every frame is a keyframe (no inter-frame loss), full-res GIF, rgb565 palette.
+const EXPORT_QUALITY = {
+  videoBpp: 1.00, gifMaxW: 1920, gifColors: 256, gifKsize: 'rgb565', keyframeIntervalSec: 0,
+};
+function getQuality() { return EXPORT_QUALITY; }
 
 const DEFAULT_ICONS = [
   { id: '01', name: "Tumblr", svg: `<svg width="54" height="54" viewBox="0 0 54 54" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="53.2954" height="53.2954" rx="26.6477" fill="black"/><path fill-rule="evenodd" clip-rule="evenodd" d="M28.7449 32.6012C28.7449 35.0041 29.9574 35.8368 31.8865 35.8368H34.624V41.9443H29.4411C24.7712 41.9443 21.2933 39.5414 21.2933 33.7907V24.587H17.0547V19.601C21.7213 18.3877 23.6742 14.3704 23.8983 10.8867H28.7449V18.7922H34.3998V24.587H28.7449V32.6012Z" fill="white"/></svg>` },
@@ -3443,6 +3844,73 @@ const DEFAULT_ICONS = [
   { id: '24', name: "Pressable", svg: `<svg width="54" height="54" viewBox="0 0 54 54" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="26.6476" cy="26.6476" r="26.6476" fill="#DD3A03"/><path d="M15.2326 12.791C14.4881 12.791 13.8818 13.3973 13.8818 14.1418V39.1538C13.8818 39.8983 14.4881 40.5046 15.2326 40.5046H29.7724L41.5954 28.6816V14.1418C41.5954 13.3973 40.9891 12.791 40.2446 12.791H15.2326ZM32.6965 28.3861C31.4916 29.4644 29.6535 30.0017 27.186 30.0017H25.5283V35.3049C25.5283 35.5198 25.3556 35.6925 25.1407 35.6925H21.357C21.1422 35.6925 20.9695 35.5198 20.9695 35.3049V17.983C20.9695 17.7681 21.1422 17.5954 21.357 17.5954H27.1592C29.7571 17.5954 31.6297 18.1288 32.7809 19.1994C33.9321 20.2701 34.5077 21.8165 34.5077 23.8427C34.5077 25.8688 33.9053 27.3117 32.6965 28.3861Z" fill="white"/><path d="M29.259 22.0344C28.7986 21.6737 28.0886 21.4972 27.1331 21.4972H25.5291V26.1404H27.1331C28.0349 26.1404 28.7295 25.9639 29.2207 25.6147C29.708 25.2655 29.9536 24.6746 29.9536 23.8457C29.9536 23.0168 29.7234 22.3951 29.2629 22.0344H29.259Z" fill="white"/></svg>` },
   { id: '25', name: "Longreads", svg: `<svg width="54" height="54" viewBox="0 0 54 54" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="26.6477" cy="26.6477" r="26.6477" fill="#CC0000"/><path d="M26.7094 13.8614C23.3415 13.8679 20.1141 15.212 17.7373 17.598C15.3604 19.9841 14.0287 23.2166 14.0352 26.5845C14.0417 29.9524 15.3858 33.1798 17.7718 35.5567C20.1579 37.9336 23.3904 39.2653 26.7583 39.2588C33.7555 39.2099 39.4815 33.5328 39.4387 26.5357C39.4369 24.8671 39.106 23.2153 38.465 21.6748C37.824 20.1344 36.8854 18.7354 35.703 17.5582C34.5207 16.3809 33.1177 15.4484 31.5744 14.814C30.0312 14.1797 28.378 13.856 26.7094 13.8614ZM28.9598 32.9461C29.5969 32.8972 30.0858 32.7933 30.5258 32.4572C31.3069 31.7707 31.8974 30.8939 32.2399 29.912C32.2399 29.8631 32.3377 29.8142 32.4355 29.8142C32.5261 29.816 32.613 29.8508 32.6799 29.912C32.7098 29.9352 32.734 29.9649 32.751 29.9987C32.7679 30.0325 32.777 30.0697 32.7777 30.1075C32.4469 31.3654 32.1853 32.6405 31.9939 33.9269H20.9804C20.8826 33.9269 20.8276 33.8292 20.8276 33.6321C20.8276 33.435 20.8765 33.3387 20.9804 33.3387C21.6174 33.2899 22.4485 33.0943 22.7923 32.8988C23.136 32.7032 23.2812 32.1165 23.2812 31.6765V21.6911C23.2812 21.3489 23.2323 20.8585 23.0856 20.663C22.9185 20.4483 22.6991 20.28 22.4485 20.1741C22.0216 20.0302 21.5807 19.9319 21.1331 19.8807C21.0313 19.8807 20.9804 19.783 20.9804 19.5874C20.9804 19.3903 21.0292 19.2926 21.1331 19.2926H27.348C27.4458 19.2926 27.5008 19.3903 27.5008 19.5874C27.5008 19.7845 27.4519 19.8807 27.348 19.8807C26.8969 19.9312 26.4523 20.0296 26.022 20.1741C25.7771 20.267 25.5585 20.418 25.3849 20.6141C25.2871 20.7668 25.2321 21.3 25.2321 21.6835V31.8125C25.2321 32.4007 25.5743 33.0347 26.1136 33.0347C26.6529 33.0347 28.3243 32.995 28.9598 32.9461Z" fill="white"/><path d="M26.7064 10.9317C23.6092 10.9317 20.5816 11.8501 18.0064 13.5708C15.4312 15.2914 13.4241 17.7371 12.2389 20.5985C11.0537 23.4599 10.7435 26.6085 11.3478 29.6462C11.952 32.6838 13.4434 35.4741 15.6334 37.6641C17.8235 39.8541 20.6137 41.3455 23.6514 41.9497C26.689 42.554 29.8376 42.2439 32.699 41.0586C35.5604 39.8734 38.0061 37.8663 39.7268 35.2911C41.4475 32.7159 42.3659 29.6883 42.3659 26.5911C42.3683 24.534 41.9649 22.4966 41.1788 20.5957C40.3927 18.6947 39.2393 16.9674 37.7847 15.5128C36.3301 14.0582 34.6028 12.9049 32.7019 12.1187C30.8009 11.3326 28.7635 10.9292 26.7064 10.9317ZM26.7064 40.7825C23.8996 40.7825 21.1559 39.9502 18.8221 38.3908C16.4883 36.8314 14.6694 34.6151 13.5953 32.0219C12.5212 29.4288 12.2402 26.5754 12.7877 23.8226C13.3353 21.0697 14.6869 18.5411 16.6716 16.5564C18.6563 14.5717 21.1849 13.2201 23.9378 12.6725C26.6906 12.1249 29.544 12.406 32.1372 13.4801C34.7303 14.5542 36.9467 16.3731 38.506 18.7069C40.0654 21.0406 40.8977 23.7844 40.8977 26.5911C40.8932 30.3536 39.3967 33.9606 36.7362 36.621C34.0758 39.2814 30.4688 40.778 26.7064 40.7825Z" fill="white"/></svg>` },
 ];
+
+// Source AUTOMATTIC wordmark. Split at boot into 10 letter-sized SVGs by
+// grouping the underlying paths and computing each letter's bounding box.
+const A8C_LOGO_SOURCE_SVG = `<svg width="551" height="44" viewBox="0 0 551 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g clip-path="url(#clip0_1596_3253)">
+<path d="M41.5276 41.2698L36.2977 31.4778H13.0416L7.98981 41.2698H0.200684L21.4984 1.74561H27.674L49.3946 41.2698H41.5276ZM24.436 9.45684L15.8346 26.0699H33.3378L24.436 9.45684Z" fill="#080808"/>
+<path d="M83.1205 42.8054C68.9443 42.8054 62.3569 35.0942 62.3569 24.8237V1.74561H69.7121V24.9016C69.7121 32.2011 74.5191 36.5296 83.6546 36.5296C93.035 36.5296 96.8961 32.2011 96.8961 24.9016V1.74561H104.307V24.8237C104.307 34.6157 98.02 42.8054 83.1205 42.8054Z" fill="#080808"/>
+<path d="M145.624 7.91014V41.2921H138.202V7.91014H120.932V1.74561H162.893V7.91014H145.624Z" fill="#080808"/>
+<path d="M199.624 42.8069C185.615 42.8069 176.535 32.7255 176.535 22.2213V20.9083C176.535 10.2261 185.615 0.322754 199.624 0.322754C213.634 0.322754 222.769 10.2261 222.769 20.9083V22.2213C222.769 32.6921 213.689 42.8069 199.624 42.8069ZM215.292 21.0307C215.292 13.3751 209.728 6.56517 199.624 6.56517C189.521 6.56517 184.046 13.3862 184.046 21.0307V21.9765C184.046 29.6321 189.61 36.5756 199.624 36.5756C209.639 36.5756 215.292 29.6321 215.292 21.9765V21.0307Z" fill="#080808"/>
+<path d="M200.528 14.92L193.731 25.4459C192.871 26.7779 193.254 28.5549 194.586 29.4149L194.595 29.421C195.927 30.281 197.704 29.8984 198.564 28.5664L205.36 18.0406C206.22 16.7086 205.838 14.9316 204.506 14.0716L204.497 14.0655C203.165 13.2055 201.388 13.588 200.528 14.92Z" fill="#080808"/>
+<path d="M288.877 41.2698V9.99095L286.918 13.4293L270.361 41.2476H266.744L250.365 13.4293L248.406 9.99095V41.2698H241.163V1.74561H251.433L267.011 28.8629L268.847 32.2011L270.683 28.8629L286.117 1.74561H296.343V41.2698H288.877Z" fill="#080808"/>
+<path d="M352.38 41.2698L347.161 31.4778H323.949L318.909 41.2698H311.12L332.484 1.74561H338.626L360.347 41.2698H352.38ZM335.344 9.45684L326.742 26.0699H344.246L335.344 9.45684Z" fill="#080808"/>
+<path d="M390.247 7.91014V41.2921H382.825V7.91014H365.555V1.74561H407.516V7.91014H390.247Z" fill="#080808"/>
+<path d="M444.659 7.91014V41.2921H437.249V7.91014H419.979V1.74561H461.94V7.91014H444.659Z" fill="#080808"/>
+<path d="M480.211 41.2698V5.48439C483.182 5.48439 484.361 3.88205 484.361 1.74561H487.51V41.2698H480.211Z" fill="#080808"/>
+<path d="M545.595 12.896C541.317 8.83564 535.648 6.56626 529.75 6.55346C519.179 6.55346 513.248 13.7862 513.248 21.3305V22.0983C513.248 29.5759 519.235 36.5639 530.273 36.5639C536.05 36.4587 541.579 34.1962 545.773 30.2213L550.224 34.9059C544.68 40.0541 537.371 42.8781 529.805 42.7951C514.85 42.7951 505.771 33.0699 505.771 22.3876V21.0746C505.771 10.3924 515.674 0.311035 530.162 0.311035C538.529 0.311035 546.129 3.80501 550.191 8.2003L545.595 12.896Z" fill="#080808"/>
+</g></svg>`;
+
+// Path index → letter grouping. Path 4 (O outline) and path 5 (the diagonal
+// slash) share the same letter slot.
+const A8C_LETTER_GROUPS = [
+  { name: 'A', paths: [0] },
+  { name: 'U', paths: [1] },
+  { name: 'T', paths: [2] },
+  { name: 'O', paths: [3, 4] },
+  { name: 'M', paths: [5] },
+  { name: 'A', paths: [6] },
+  { name: 'T', paths: [7] },
+  { name: 'T', paths: [8] },
+  { name: 'I', paths: [9] },
+  { name: 'C', paths: [10] },
+];
+// Computed once on first access — splits the source SVG into per-letter SVG strings.
+let A8C_LETTERS_CACHE = null;
+function getA8cLetters() {
+  if (A8C_LETTERS_CACHE) return A8C_LETTERS_CACHE;
+  // getBBox() needs the SVG attached to a rendered (but invisible) container.
+  const container = document.createElement('div');
+  container.style.cssText = 'position:absolute;left:-99999px;top:-99999px;opacity:0;pointer-events:none;';
+  container.innerHTML = A8C_LOGO_SOURCE_SVG;
+  document.body.appendChild(container);
+  const paths = [...container.querySelectorAll('path')];
+  const out = [];
+  A8C_LETTER_GROUPS.forEach((g, i) => {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    g.paths.forEach(pi => {
+      const bb = paths[pi].getBBox();
+      minX = Math.min(minX, bb.x);
+      minY = Math.min(minY, bb.y);
+      maxX = Math.max(maxX, bb.x + bb.width);
+      maxY = Math.max(maxY, bb.y + bb.height);
+    });
+    const w = maxX - minX, h = maxY - minY;
+    const pathStrings = g.paths.map(pi => paths[pi].outerHTML).join('');
+    const id = 'a8c-' + String(i + 1).padStart(2, '0') + '-' + g.name;
+    const svg = `<svg width="${w}" height="${h}" viewBox="${minX} ${minY} ${w} ${h}" fill="none" xmlns="http://www.w3.org/2000/svg">${pathStrings}</svg>`;
+    // srcX records the letter's source-SVG x position so renderers can recreate
+    // the original inter-letter spacing instead of inheriting the icon spacing slider.
+    out.push({ id, name: g.name, svg, w, h, srcX: minX, srcY: minY });
+  });
+  container.remove();
+  A8C_LETTERS_CACHE = out;
+  return out;
+}
+// Reference line-height for the wordmark — used to scale natural source spacing
+// to the user's chosen A8C slot height. Derived from the source SVG viewBox.
+const A8C_WORDMARK_REF_H = 43;
 
 const DEFAULT_LAYOUTS = {
   2: ['10', '19'],
@@ -3488,16 +3956,52 @@ function sanitizeSVG(svgText) {
 }
 
 function persist() {
+  // Sync the active segment with the live top-level mirror before saving so we
+  // don't lose tweaks made via the legacy slider IDs.
+  syncActiveSegmentFromTop();
   const toSave = {
-    count: state.count, spacing: state.spacing, scale: state.scale, stageZoom: state.stageZoom,
+    count: state.count, spacing: state.spacing, scale: state.scale, a8cScale: state.a8cScale, stageZoom: state.stageZoom,
     duration: state.duration, stagger: state.stagger, slideDistance: state.slideDistance,
     startScale: state.startScale, easing: state.easing, bgOn: state.bgOn, bgColor: state.bgColor,
     auto: state.auto,
+    activeSegment: state.activeSegment, segments: state.segments,
     aspectRatio: state.aspectRatio,
-    resolution: state.resolution, fps: state.fps, quality: state.quality, library: state.library, assignments: state.assignments,
+    resolution: state.resolution, fps: state.fps, exportRange: state.exportRange,
+    segmentPauses: state.segmentPauses,
+    library: state.library, assignments: state.assignments,
     theme: state.theme, panelState: state.panelState, panelX: state.panelX, panelY: state.panelY,
   };
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave)); } catch (e) {}
+}
+
+const SEGMENT_KEYS = ['logosIn', 'logosOut', 'a8cIn', 'a8cOut'];
+const ANIM_FIELDS = ['duration', 'stagger', 'slideDistance', 'startScale', 'easing'];
+function defaultSegmentParams() {
+  return {
+    duration: 700, stagger: 20, slideDistance: 0, startScale: 40,
+    easing: 'cubic-bezier(0.28, 0, 0, 1)',
+    auto: { duration: true, stagger: true, slideDistance: true, startScale: true, easing: true },
+    // Outro-only: reverse the stagger order so outer items leave first. Ignored
+    // by the intro segments.
+    reverseOrder: false,
+  };
+}
+// Mirror state.segments[active] → top-level state.duration / state.auto etc.
+function syncTopFromActiveSegment() {
+  const seg = state.segments[state.activeSegment];
+  if (!seg) return;
+  ANIM_FIELDS.forEach(k => { state[k] = seg[k]; });
+  state.auto = { ...state.auto, ...seg.auto };
+}
+// Mirror top-level state.duration etc. → state.segments[active].
+function syncActiveSegmentFromTop() {
+  const seg = state.segments[state.activeSegment];
+  if (!seg) return;
+  ANIM_FIELDS.forEach(k => { seg[k] = state[k]; });
+  seg.auto = { ...seg.auto };
+  ['duration', 'stagger', 'slideDistance', 'startScale', 'easing'].forEach(k => {
+    if (state.auto && k in state.auto) seg.auto[k] = state.auto[k];
+  });
 }
 
 function restore() {
@@ -3538,6 +4042,35 @@ function restore() {
         slideDistance: false, startScale: false, easing: false,
       };
     }
+    // Ensure all 4 segments exist; migrate legacy top-level animation params into logosIn.
+    if (!state.segments) state.segments = {};
+    SEGMENT_KEYS.forEach(k => {
+      if (!state.segments[k]) state.segments[k] = defaultSegmentParams();
+      // Older saves predate reverseOrder; ensure the flag exists.
+      if (typeof state.segments[k].reverseOrder !== 'boolean') state.segments[k].reverseOrder = false;
+    });
+    if (!state.activeSegment || !SEGMENT_KEYS.includes(state.activeSegment)) state.activeSegment = 'logosIn';
+    if (typeof data.duration === 'number') {
+      // Old format: copy top-level animation params into logosIn.
+      const li = state.segments.logosIn;
+      li.duration = data.duration;
+      li.stagger = data.stagger;
+      li.slideDistance = data.slideDistance;
+      li.startScale = data.startScale;
+      li.easing = data.easing || li.easing;
+      if (data.auto) {
+        ['duration','stagger','slideDistance','startScale','easing'].forEach(k => { if (k in data.auto) li.auto[k] = data.auto[k]; });
+      }
+    }
+    // Migrate older saves that predate segmentPauses.
+    if (!state.segmentPauses || typeof state.segmentPauses !== 'object') {
+      state.segmentPauses = { logosInToOut: 0.5, logosOutToA8cIn: 0.5, a8cInToOut: 0.5 };
+    }
+    // Clamp older a8cScale values (slider range tightened to 10–80).
+    if (typeof state.a8cScale === 'number') {
+      state.a8cScale = Math.max(10, Math.min(80, state.a8cScale));
+    }
+    syncTopFromActiveSegment();
     return true;
   } catch (e) { return false; }
 }
@@ -3580,6 +4113,125 @@ function populateResolutionDropdown() {
   }
 }
 
+// Switch which segment drives the stage / Animate IN-style controls. Saves the
+// current top-level animation values into the outgoing segment, loads the
+// incoming segment into the top-level mirror, and updates timeline + panel UI.
+function setActiveSegment(seg, opts) {
+  if (!state.segments || !state.segments[seg]) return;
+  const play = opts && opts.play;
+  if (state.activeSegment === seg && !play) return;
+  // Save outgoing.
+  syncActiveSegmentFromTop();
+  state.activeSegment = seg;
+  // Load incoming into top-level mirror so existing readers (playAnimation,
+  // drawFrame, exports) pick up the new segment without code changes.
+  syncTopFromActiveSegment();
+  // Open the matching settings panel, collapse the others.
+  document.querySelectorAll('.section[data-segment]').forEach(p => {
+    p.classList.toggle('open', p.dataset.segment === seg);
+  });
+  // Update timeline visual.
+  document.querySelectorAll('#timeline .timeline-seg').forEach(b => {
+    b.classList.toggle('active', b.dataset.segment === seg);
+  });
+  bindUIFromState();
+  // `play` triggers a real animation; otherwise jump to the segment's rest state.
+  renderStage(!play);
+  if (!play) persist();
+}
+
+// Discrete options for the timeline duration + pause dropdowns. 0s allowed for
+// both (a 0s pause = back-to-back; a 0s duration = the segment effectively flashes
+// through with no motion). Cap at 10s per spec.
+const TIMELINE_DROPDOWN_VALUES = [0, 0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 4, 5, 6, 7, 8, 9, 10];
+
+// Lazily fill the <option> list (only on first call) so that subsequent .value
+// assignments don't get clobbered by an innerHTML rebuild.
+function ensureTimelineOptions(selectEl) {
+  if (!selectEl || selectEl.options.length) return;
+  selectEl.innerHTML = TIMELINE_DROPDOWN_VALUES.map(v =>
+    `<option value="${v}">${v}s</option>`
+  ).join('');
+}
+function snapToTimelineValue(sec) {
+  return TIMELINE_DROPDOWN_VALUES.reduce((best, v) =>
+    Math.abs(v - sec) < Math.abs(best - sec) ? v : best, TIMELINE_DROPDOWN_VALUES[0]);
+}
+
+// Update every timeline dropdown's selected value from current state (call after
+// any state change that might affect duration/pause values).
+function syncTimelineDropdowns() {
+  document.querySelectorAll('.timeline-dur').forEach(sel => {
+    const seg = sel.dataset.dur;
+    const segObj = state.segments && state.segments[seg];
+    if (!segObj) return;
+    ensureTimelineOptions(sel);
+    sel.value = String(snapToTimelineValue(segObj.duration / 1000));
+  });
+  document.querySelectorAll('.timeline-pause').forEach(sel => {
+    const key = sel.dataset.pause;
+    const sec = (state.segmentPauses && state.segmentPauses[key]) ?? 0.5;
+    ensureTimelineOptions(sel);
+    sel.value = String(snapToTimelineValue(sec));
+  });
+}
+
+// Wire change handlers for the dropdowns. Each duration dropdown maps directly
+// to state.segments[seg].duration; each pause to state.segmentPauses[key].
+function bindTimelineDropdowns() {
+  document.querySelectorAll('.timeline-dur').forEach(sel => {
+    sel.onchange = (e) => {
+      const seg = sel.dataset.dur;
+      const segObj = state.segments && state.segments[seg];
+      if (!segObj) return;
+      const sec = parseFloat(e.target.value);
+      segObj.duration = Math.round(sec * 1000);
+      // Picking a duration takes the Speed slider out of auto mode.
+      if (segObj.auto) segObj.auto.duration = false;
+      // If we just edited the active segment, mirror to top-level so playback uses the new value.
+      if (seg === state.activeSegment) syncTopFromActiveSegment();
+      bindUIFromState();
+      renderStage(true);
+      persist();
+    };
+  });
+  document.querySelectorAll('.timeline-pause').forEach(sel => {
+    sel.onchange = (e) => {
+      const key = sel.dataset.pause;
+      if (!state.segmentPauses) state.segmentPauses = { logosInToOut: 0.5, logosOutToA8cIn: 0.5, a8cInToOut: 0.5 };
+      state.segmentPauses[key] = parseFloat(e.target.value);
+      persist();
+    };
+  });
+}
+
+// PLAY ALL — walks through all 4 segments back-to-back, honoring the pauses.
+// State machine via the existing `playback` controller. Stop by clicking again
+// or any other play-button.
+async function startPlayAll() {
+  playback.stop();
+  playback.mode = 'playing-all';
+  const playAllBtn = document.getElementById('btn-play-all');
+  if (playAllBtn) playAllBtn.classList.add('active');
+  const sequence = ['logosIn', 'logosOut', 'a8cIn', 'a8cOut'];
+  for (let i = 0; i < sequence.length; i++) {
+    if (playback.mode !== 'playing-all') break;
+    const seg = sequence[i];
+    setActiveSegment(seg, { play: true });
+    // Wait for the segment's full animation (stagger × maxStep + duration).
+    const segMs = getSegmentTotalDuration(seg) + 60;
+    await wait(segMs);
+    if (playback.mode !== 'playing-all') break;
+    if (i < sequence.length - 1) {
+      const pauseSec = getPauseSecondsBetween(seg, sequence[i + 1]);
+      await wait(pauseSec * 1000);
+    }
+  }
+  if (playback.mode === 'playing-all') playback.mode = 'idle';
+  if (playAllBtn) playAllBtn.classList.remove('active');
+}
+function wait(ms) { return new Promise(r => setTimeout(r, Math.max(0, ms))); }
+
 function applyAspectRatio(ar) {
   if (!ASPECT_RATIOS[ar]) return;
   state.aspectRatio = ar;
@@ -3591,9 +4243,29 @@ function applyAspectRatio(ar) {
   const r = ASPECT_RATIOS[ar];
   state.resolution = r.w + 'x' + r.h;
   populateResolutionDropdown();
+  applyCountLimitForAspect();
   // Re-render stage at new dimensions (skip animation to avoid replaying on every click)
   renderStage(true);
   persist();
+}
+
+// Update the Icons slider's max for the current aspect ratio and clamp state.count.
+function applyCountLimitForAspect() {
+  const max = getMaxCountForAspect(state.aspectRatio);
+  const rCount = document.getElementById('r-count');
+  const vCount = document.getElementById('v-count');
+  if (rCount) rCount.max = max;
+  if (vCount) vCount.dataset.max = max;
+  if (state.count > max) {
+    state.count = max;
+    ensureAssignments();
+    recomputeAuto();
+  }
+  if (rCount) rCount.value = state.count;
+  if (vCount) vCount.value = state.count;
+  // Auto-derived spacing/scale depend on aspect — recompute and refresh UI.
+  recomputeAuto();
+  bindUIFromState();
 }
 
 function loadDefaults() {
@@ -3713,7 +4385,20 @@ function ensureAssignments() {
 
 function getIconBaseSize() { return 80 * (state.scale / 100); }
 function getSlotSize() { return getIconBaseSize(); }
+// A8C wordmark height (in canvas units) — driven by its own independent
+// slider so it can be sized separately from the logo icons.
+function getA8cSlotSize() { return 80 * ((state.a8cScale ?? 100) / 100); }
 function getGap() { return state.spacing; }
+
+// True when the active segment is one of the A8C wordmark segments.
+function isA8cSegment() {
+  return state.activeSegment === 'a8cIn' || state.activeSegment === 'a8cOut';
+}
+// True for the two "out" segments (Logos Outro, A8C Outro). These play the
+// animation in reverse: from resting position back to start-state.
+function isOutSegment() {
+  return state.activeSegment === 'logosOut' || state.activeSegment === 'a8cOut';
+}
 
 function renderStage(skipAnimation = false) {
   ensureAssignments();
@@ -3727,32 +4412,60 @@ function renderStage(skipAnimation = false) {
   }
   applyZoom();
   iconRow.innerHTML = '';
-  const slotSize = getSlotSize();
-  const gap = getGap();
-  iconRow.style.gap = gap + 'px';
-  for (let i = 0; i < state.count; i++) {
-    const slot = document.createElement('div');
-    slot.className = 'icon-slot';
-    slot.style.width = slotSize + 'px';
-    slot.style.height = slotSize + 'px';
-    slot.dataset.index = i;
-    const assigned = state.assignments[i];
-    if (assigned) {
-      const icon = state.library.find(x => x.id === assigned);
-      if (icon) {
-        slot.innerHTML = icon.svg;
+
+  if (isA8cSegment()) {
+    // A8C: use the wordmark's natural source-SVG spacing, not the icon Spacing
+    // slider. Slot height = the user's A8C scale; letter widths + inter-letter
+    // gaps are scaled from the source by (slotH / reference wordmark height).
+    iconRow.style.gap = '0px';
+    const letters = getA8cLetters();
+    const slotH = getA8cSlotSize();
+    const scale = slotH / A8C_WORDMARK_REF_H;
+    let prev = null;
+    letters.forEach((letter, i) => {
+      const slot = document.createElement('div');
+      slot.className = 'icon-slot a8c-letter';
+      // Render at the letter's true aspect, scaled by the wordmark scale factor.
+      slot.style.width = (letter.w * scale) + 'px';
+      slot.style.height = (letter.h * scale) + 'px';
+      slot.style.marginLeft = prev
+        ? ((letter.srcX - (prev.srcX + prev.w)) * scale) + 'px'
+        : '0px';
+      slot.dataset.index = i;
+      slot.dataset.a8cId = letter.id;
+      slot.innerHTML = letter.svg;
+      iconRow.appendChild(slot);
+      prev = letter;
+    });
+  } else {
+    const gap = getGap();
+    iconRow.style.gap = gap + 'px';
+    const slotSize = getSlotSize();
+    for (let i = 0; i < state.count; i++) {
+      const slot = document.createElement('div');
+      slot.className = 'icon-slot';
+      slot.style.width = slotSize + 'px';
+      slot.style.height = slotSize + 'px';
+      slot.dataset.index = i;
+      const assigned = state.assignments[i];
+      if (assigned) {
+        const icon = state.library.find(x => x.id === assigned);
+        if (icon) {
+          slot.innerHTML = icon.svg;
+        } else {
+          slot.classList.add('empty');
+          slot.textContent = '+';
+          state.assignments[i] = null;
+        }
       } else {
         slot.classList.add('empty');
         slot.textContent = '+';
-        state.assignments[i] = null;
       }
-    } else {
-      slot.classList.add('empty');
-      slot.textContent = '+';
+      slot.onclick = () => openPicker(i);
+      iconRow.appendChild(slot);
     }
-    slot.onclick = () => openPicker(i);
-    iconRow.appendChild(slot);
   }
+
   renderLibrary();
   if (skipAnimation) {
     // Place every slot in its final state — no animation
@@ -3818,11 +4531,16 @@ function playAnimation() {
   const iconRow = document.getElementById('iconRow');
   const slots = iconRow.querySelectorAll('.icon-slot');
   if (slots.length === 0) return;
+  // Use the actual slot count rather than state.count — they diverge for the
+  // A8C segments (10 letters regardless of the icon-count slider).
+  const n = slots.length;
   const dur = state.duration;
   const stagger = state.stagger;
   const startScale = state.startScale / 100;
   const ease = state.easing;
-  const maxStep = getMirrorMaxStep(state.count);
+  const isOut = isOutSegment();
+  const reverseOrder = isOut && !!(state.segments[state.activeSegment] && state.segments[state.activeSegment].reverseOrder);
+  const maxStep = getMirrorMaxStep(n);
   state.totalDuration = stagger * maxStep + dur;
   slots.forEach((slot, i) => {
     if (slot.classList.contains('empty')) {
@@ -3831,19 +4549,30 @@ function playAnimation() {
       slot.style.transform = 'scale(1)';
       return;
     }
-    const step = getMirrorStep(i, state.count);
-    const delay = step * stagger;
-    const startX = getSlideOffset(i, state.count, state.slideDistance);
+    const step = getMirrorStep(i, n);
+    // Reversed-order outros: outer slots animate first (delay 0), middle last.
+    const delay = (reverseOrder ? (maxStep - step) : step) * stagger;
+    const xOffset = getSlideOffset(i, n, state.slideDistance);
+    // Intro: start at slid-out / scaled-down / transparent → land at rest.
+    // Outro: start at rest → slide back out / scale down / fade.
+    const fromTransform = isOut
+      ? 'translateX(0px) scale(1)'
+      : 'translateX(' + xOffset + 'px) scale(' + startScale + ')';
+    const toTransform = isOut
+      ? 'translateX(' + xOffset + 'px) scale(' + startScale + ')'
+      : 'translateX(0px) scale(1)';
+    const fromOpacity = isOut ? '1' : '0';
+    const toOpacity = isOut ? '0' : '1';
     slot.style.transition = 'none';
-    slot.style.opacity = '0';
-    slot.style.transform = 'translateX(' + startX + 'px) scale(' + startScale + ')';
+    slot.style.opacity = fromOpacity;
+    slot.style.transform = fromTransform;
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         slot.style.transition =
           'transform ' + dur + 'ms ' + ease + ' ' + delay + 'ms, ' +
           'opacity ' + dur + 'ms ' + ease + ' ' + delay + 'ms';
-        slot.style.opacity = '1';
-        slot.style.transform = 'translateX(0px) scale(1)';
+        slot.style.opacity = toOpacity;
+        slot.style.transform = toTransform;
       });
     });
   });
@@ -3905,22 +4634,27 @@ const playback = {
   updateUI() {
     const playBtn = document.getElementById('btn-play');
     const loopBtn = document.getElementById('btn-loop');
+    const allBtn = document.getElementById('btn-play-all');
     if (!playBtn || !loopBtn) return;
     if (this.mode === 'playing') {
       playBtn.textContent = 'STOP';
-      loopBtn.textContent = 'LOOP';
+      loopBtn.textContent = 'LOOP SEGMENT';
       loopBtn.disabled = true;
       playBtn.disabled = false;
     } else if (this.mode === 'looping') {
-      playBtn.textContent = 'PLAY';
+      playBtn.textContent = 'PLAY SEGMENT';
       loopBtn.textContent = 'STOP';
       playBtn.disabled = true;
       loopBtn.disabled = false;
     } else {
-      playBtn.textContent = 'PLAY';
-      loopBtn.textContent = 'LOOP';
+      playBtn.textContent = 'PLAY SEGMENT';
+      loopBtn.textContent = 'LOOP SEGMENT';
       playBtn.disabled = false;
       loopBtn.disabled = false;
+    }
+    if (allBtn) {
+      allBtn.textContent = this.mode === 'playing-all' ? 'STOP' : 'PLAY ALL';
+      allBtn.classList.toggle('active', this.mode === 'playing-all');
     }
   },
 };
@@ -3970,12 +4704,15 @@ async function generateWebMBlob() {
   const ctx = canvas.getContext('2d');
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-  const iconImages = await renderIconsToImages(getIconRenderSize(w, h));
+  const timeline = buildExportTimeline();
+  const needIcons = timeline.items.some(it => !isA8cSeg(it.seg));
+  const needLetters = timeline.items.some(it => isA8cSeg(it.seg));
+  const iconImages = needIcons ? await renderIconsToImages(getIconRenderSize(w, h)) : [];
+  const a8cImages  = needLetters ? await renderA8cLettersToImages(getA8cRenderSize(w, h)) : [];
   const stream = canvas.captureStream(fps);
   let mime = 'video/webm;codecs=vp9';
   if (!MediaRecorder.isTypeSupported(mime)) mime = 'video/webm';
   const q = getQuality();
-  // Bitrate scales with pixel count, FPS, and quality preset.
   const bitrate = Math.max(2_000_000, Math.round(w * h * fps * q.videoBpp));
   const recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: bitrate });
   const chunks = [];
@@ -3983,11 +4720,12 @@ async function generateWebMBlob() {
   recorder.start();
   const indicator = document.getElementById('recIndicator');
   indicator.classList.add('on');
-  const totalMs = state.totalDuration + 600;
+  // Total = timeline + a tail so the last frame breathes after the recorder cut.
+  const totalMs = timeline.totalMs + 300;
   const frameCount = Math.ceil((totalMs / 1000) * fps);
   for (let f = 0; f <= frameCount; f++) {
     const t = (f / fps) * 1000;
-    drawFrame(ctx, w, h, t, iconImages);
+    drawSequenceFrameSupersampled(ctx, w, h, timeline, t, iconImages, a8cImages);
     document.getElementById('recTime').textContent = (t / 1000).toFixed(1) + 's';
     await new Promise(r => setTimeout(r, 1000 / fps));
   }
@@ -4086,20 +4824,24 @@ async function exportMP4() {
   const ctx = canvas.getContext('2d');
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-  const iconImages = await renderIconsToImages(getIconRenderSize(outW, outH));
+  const timeline = buildExportTimeline();
+  const needIcons = timeline.items.some(it => !isA8cSeg(it.seg));
+  const needLetters = timeline.items.some(it => isA8cSeg(it.seg));
+  const iconImages = needIcons ? await renderIconsToImages(getIconRenderSize(outW, outH)) : [];
+  const a8cImages  = needLetters ? await renderA8cLettersToImages(getA8cRenderSize(outW, outH)) : [];
 
   showToast('Encoding MP4…');
   const indicator = document.getElementById('recIndicator');
   indicator.classList.add('on');
 
-  const totalMs = state.totalDuration + 600;
+  const totalMs = timeline.totalMs + 300;
   const frameCount = Math.ceil((totalMs / 1000) * fps);
   const microsPerFrame = Math.round(1_000_000 / fps);
 
   for (let f = 0; f <= frameCount; f++) {
     if (encoderError) break;
     const t = (f / fps) * 1000;
-    drawFrame(ctx, outW, outH, t, iconImages);
+    drawSequenceFrameSupersampled(ctx, outW, outH, timeline, t, iconImages, a8cImages);
     // Use a keyframe at the start and roughly every 2 seconds
     // Keyframes: every frame in High mode (q.keyframeIntervalSec = 0) for visually-lossless output;
     // otherwise periodic keyframes for normal compression
@@ -4139,14 +4881,27 @@ function getIconRenderSize(w, h) {
   const s = Math.min(w / c.w, h / c.h);
   return getSlotSize() * s;
 }
+// Same calc but using the A8C-specific slot size — feeds renderA8cLettersToImages.
+function getA8cRenderSize(w, h) {
+  const c = getCanvas();
+  const s = Math.min(w / c.w, h / c.h);
+  return getA8cSlotSize() * s;
+}
 
 // Pre-rasterize each icon to a canvas-sized bitmap so ctx.drawImage doesn't
 // upscale a low-res SVG raster (which causes the fuzziness). The renderSize
 // param tells us how big each icon will appear in the final exported frame.
+// Padding ratio added around each baked icon so that the downsample filter
+// in drawFrame has fringe room to anti-alias edge pixels (otherwise circle
+// shapes that touch the SVG viewBox produce stair-stepped edges in exports).
+const ICON_RASTER_PAD_RATIO = 0.06; // 6% transparent margin on each side
+
 async function renderIconsToImages(renderSize) {
   const out = [];
-  // Render at 2x for a quality margin (sharp on retina, no aliasing on downscale)
-  const targetPx = Math.max(64, Math.ceil(renderSize * 2));
+  // Render at 6x with a high floor so even tiny on-screen icons start from a
+  // very large bitmap. Aggressive supersampling like this is the single most
+  // effective lever for clean circular edges after downsample.
+  const targetPx = Math.max(512, Math.ceil(renderSize * 6));
   for (let i = 0; i < state.count; i++) {
     const id = state.assignments[i];
     if (!id) { out.push(null); continue; }
@@ -4156,6 +4911,8 @@ async function renderIconsToImages(renderSize) {
     // Inject explicit width/height so the browser rasterizes at our target size.
     // Most defaults have a viewBox like "0 0 100 100" but no size attributes,
     // which makes browsers pick a default 300px raster — way too low.
+    const pad = Math.max(2, Math.round(targetPx * ICON_RASTER_PAD_RATIO));
+    const fullPx = targetPx + pad * 2;
     let svgText = icon.svg;
     if (/<svg\b[^>]*>/i.test(svgText)) {
       svgText = svgText.replace(/<svg\b([^>]*)>/i, (m, attrs) => {
@@ -4174,14 +4931,18 @@ async function renderIconsToImages(renderSize) {
         im.onerror = rej;
         im.src = url;
       });
-      // Bake into a canvas so drawImage downstream is a fast bitmap blit
+      // Bake into a padded canvas so drawImage downstream is a fast bitmap blit,
+      // and the transparent margin gives the downsample filter fringe room.
       const c = document.createElement('canvas');
-      c.width = targetPx;
-      c.height = targetPx;
+      c.width = fullPx;
+      c.height = fullPx;
       const cx = c.getContext('2d');
       cx.imageSmoothingEnabled = true;
       cx.imageSmoothingQuality = 'high';
-      cx.drawImage(img, 0, 0, targetPx, targetPx);
+      cx.drawImage(img, pad, pad, targetPx, targetPx);
+      // Ratio between the full bitmap and the inner icon area, used by drawFrame
+      // to draw the bitmap slightly larger than the slot so AA pixels survive.
+      c.padScale = fullPx / targetPx;
       out.push(c);
     } catch (e) {
       out.push(null);
@@ -4216,6 +4977,281 @@ function cubicBezier(x1, y1, x2, y2, t) {
 function bezierAxis(t, p1, p2) { const u = 1 - t; return 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t; }
 function bezierDerivative(t, p1, p2) { const u = 1 - t; return 3 * u * u * p1 + 6 * u * t * (p2 - p1) + 3 * t * t * (1 - p2); }
 
+// 4x supersampling: every export frame is composed at four times the output
+// resolution into an offscreen buffer, then downsampled into the destination
+// canvas with high-quality smoothing. Each output pixel averages a 4x4 block
+// from the high-res render — produces clean curves even when the on-screen
+// icon ends up only ~60 pixels wide. Heavy on memory (16x the canvas area)
+// but per user direction, quality > size.
+const FRAME_SUPERSAMPLE = 4;
+function drawFrameSupersampled(ctx, w, h, timeMs, iconImages) {
+  // Cap the supersampled buffer at ~64 MP so 4K (Large) exports don't OOM.
+  // For Standard 1080p, SS stays at the full 4x. For 4K, it drops to ~2x.
+  const MAX_SS_PIXELS = 64 * 1024 * 1024;
+  let ss = FRAME_SUPERSAMPLE;
+  while (ss > 1 && w * h * ss * ss > MAX_SS_PIXELS) ss--;
+  const ssW = Math.round(w * ss);
+  const ssH = Math.round(h * ss);
+  if (!ctx._ssCanvas || ctx._ssCanvas.width !== ssW || ctx._ssCanvas.height !== ssH) {
+    ctx._ssCanvas = document.createElement('canvas');
+    ctx._ssCanvas.width = ssW;
+    ctx._ssCanvas.height = ssH;
+    ctx._ssCtx = ctx._ssCanvas.getContext('2d');
+    ctx._ssCtx.imageSmoothingEnabled = true;
+    ctx._ssCtx.imageSmoothingQuality = 'high';
+  }
+  drawFrame(ctx._ssCtx, ssW, ssH, timeMs, iconImages);
+  // Chrome's single-shot canvas→canvas drawImage at large downsample ratios
+  // skips proper averaging and produces binary edges. Halving-pyramid downsample
+  // (each step is a 2:1 reduction, which the browser DOES honor as averaging)
+  // gives correct anti-aliased edges at GPU speed.
+  ctx.clearRect(0, 0, w, h);
+  halvingDownsample(ctx, ctx._ssCanvas, w, h);
+}
+
+function halvingDownsample(dstCtx, srcCanvas, dstW, dstH) {
+  let curCanvas = srcCanvas;
+  let curW = srcCanvas.width;
+  let curH = srcCanvas.height;
+  // Keep halving until we're within 2x of the target, then do the final draw.
+  while (curW >= dstW * 2 && curH >= dstH * 2) {
+    const nextW = Math.max(dstW, Math.floor(curW / 2));
+    const nextH = Math.max(dstH, Math.floor(curH / 2));
+    const tmp = document.createElement('canvas');
+    tmp.width = nextW;
+    tmp.height = nextH;
+    const tctx = tmp.getContext('2d');
+    tctx.imageSmoothingEnabled = true;
+    tctx.imageSmoothingQuality = 'high';
+    tctx.drawImage(curCanvas, 0, 0, curW, curH, 0, 0, nextW, nextH);
+    curCanvas = tmp;
+    curW = nextW;
+    curH = nextH;
+  }
+  dstCtx.imageSmoothingEnabled = true;
+  dstCtx.imageSmoothingQuality = 'high';
+  dstCtx.drawImage(curCanvas, 0, 0, curW, curH, 0, 0, dstW, dstH);
+}
+
+// --- Export sequencer (Phase 5) ----------------------------------------------
+// Ordered segment IDs in the timeline. 1-indexed in the export range UI.
+const SEGMENT_TIMELINE_ORDER = ['logosIn', 'logosOut', 'a8cIn', 'a8cOut'];
+
+function isA8cSeg(seg) { return seg === 'a8cIn' || seg === 'a8cOut'; }
+function isOutSeg(seg) { return seg === 'logosOut' || seg === 'a8cOut'; }
+function getSegmentSlotCount(seg) { return isA8cSeg(seg) ? getA8cLetters().length : state.count; }
+function getSegmentTotalDuration(seg) {
+  const s = state.segments[seg];
+  const n = getSegmentSlotCount(seg);
+  return s.stagger * getMirrorMaxStep(n) + s.duration;
+}
+function getSelectedSegmentsForExport() {
+  const r = state.exportRange || 'all';
+  if (r === 'all') return SEGMENT_TIMELINE_ORDER.slice();
+  const idx = parseInt(r, 10);
+  if (!isFinite(idx) || idx < 1 || idx > 4) return [SEGMENT_TIMELINE_ORDER[0]];
+  return [SEGMENT_TIMELINE_ORDER[idx - 1]];
+}
+// Pause key for the transition between two consecutive segments in the canonical
+// timeline order. Used by both the export sequencer and PLAY ALL.
+const SEGMENT_TRANSITION_PAUSE = {
+  'logosIn->logosOut': 'logosInToOut',
+  'logosOut->a8cIn': 'logosOutToA8cIn',
+  'a8cIn->a8cOut': 'a8cInToOut',
+};
+function getPauseSecondsBetween(prevSeg, nextSeg) {
+  const key = SEGMENT_TRANSITION_PAUSE[prevSeg + '->' + nextSeg];
+  if (!key) return 0;
+  const p = (state.segmentPauses && state.segmentPauses[key]);
+  return typeof p === 'number' ? p : 0.5;
+}
+// Build { items: [{ seg, startMs, durMs, endMs }], totalMs } for the selected
+// segments, played back-to-back with user-configurable inter-segment pauses.
+function buildExportTimeline() {
+  const selected = getSelectedSegmentsForExport();
+  const items = [];
+  let cursor = 0;
+  selected.forEach((seg, idx) => {
+    const durMs = getSegmentTotalDuration(seg);
+    items.push({ seg, startMs: cursor, durMs, endMs: cursor + durMs });
+    cursor += durMs;
+    if (idx < selected.length - 1) {
+      cursor += getPauseSecondsBetween(seg, selected[idx + 1]) * 1000;
+    }
+  });
+  return { items, totalMs: cursor };
+}
+// Locate the timeline item that owns a given global time.
+function findSegmentForTime(timeline, tMs) {
+  for (let i = 0; i < timeline.items.length; i++) {
+    const it = timeline.items[i];
+    if (tMs <= it.endMs) return it;
+  }
+  return timeline.items[timeline.items.length - 1];
+}
+
+// Rasterize the 10 A8C letters into padded bitmaps, each preserving its
+// natural aspect ratio at the same height. Analogous to renderIconsToImages
+// but with rectangular (not square) outputs.
+async function renderA8cLettersToImages(slotH) {
+  const letters = getA8cLetters();
+  const out = [];
+  const padRatio = ICON_RASTER_PAD_RATIO;
+  for (const letter of letters) {
+    const innerH = Math.max(256, Math.ceil(slotH * 6));
+    const innerW = Math.max(64, Math.ceil(innerH * (letter.w / letter.h)));
+    const pad = Math.max(2, Math.round(Math.max(innerW, innerH) * padRatio));
+    const fullW = innerW + pad * 2;
+    const fullH = innerH + pad * 2;
+    let svgText = letter.svg.replace(/<svg\b([^>]*)>/i, (m, attrs) => {
+      let a = attrs.replace(/\s(width|height)="[^"]*"/gi, '');
+      return `<svg${a} width="${innerW}" height="${innerH}">`;
+    });
+    const blob = new Blob([svgText], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    try {
+      const img = await new Promise((res, rej) => {
+        const im = new Image();
+        im.onload = () => res(im);
+        im.onerror = rej;
+        im.src = url;
+      });
+      const c = document.createElement('canvas');
+      c.width = fullW;
+      c.height = fullH;
+      const cx = c.getContext('2d');
+      cx.imageSmoothingEnabled = true;
+      cx.imageSmoothingQuality = 'high';
+      cx.drawImage(img, pad, pad, innerW, innerH);
+      c.padScaleX = fullW / innerW;
+      c.padScaleY = fullH / innerH;
+      c.letterW = letter.w;
+      c.letterH = letter.h;
+      out.push(c);
+    } catch (e) {
+      out.push(null);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+  return out;
+}
+
+// Per-segment frame renderer. Reads animation params from state.segments[seg],
+// picks icons vs letters, and applies in/out direction.
+function drawSegmentFrame(ctx, w, h, seg, localTMs, iconImages, a8cImages) {
+  const segObj = state.segments[seg];
+  if (!segObj) return;
+  const isA8c = isA8cSeg(seg);
+  const isOut = isOutSeg(seg);
+
+  if (state.bgOn) { ctx.fillStyle = state.bgColor; ctx.fillRect(0, 0, w, h); }
+  else ctx.clearRect(0, 0, w, h);
+
+  const _c = getCanvas(), stageW = _c.w, stageH = _c.h;
+  const s = Math.min(w / stageW, h / stageH);
+  const offsetX = (w - stageW * s) / 2;
+  const offsetY = (h - stageH * s) / 2;
+
+  const slotH = isA8c ? getA8cSlotSize() : getSlotSize();
+  const letters = isA8c ? getA8cLetters() : null;
+  const a8cScale = isA8c ? slotH / A8C_WORDMARK_REF_H : 0;
+
+  let images, slotWidths, slotHeights, leadGaps, n;
+  if (isA8c) {
+    images = a8cImages || [];
+    n = images.length;
+    slotWidths = letters.map(l => l.w * a8cScale);
+    slotHeights = letters.map(l => l.h * a8cScale);
+    // Lead gap = horizontal space before letter[i] (natural source spacing scaled).
+    leadGaps = letters.map((l, i) => i === 0 ? 0 : (l.srcX - (letters[i - 1].srcX + letters[i - 1].w)) * a8cScale);
+  } else {
+    const gap = getGap();
+    images = iconImages || [];
+    n = state.count;
+    slotWidths = new Array(n).fill(slotH);
+    slotHeights = new Array(n).fill(slotH);
+    leadGaps = new Array(n).fill(0).map((_, i) => i === 0 ? 0 : gap);
+  }
+  if (n === 0) return;
+
+  const totalWidth = slotWidths.reduce((a, b) => a + b, 0) + leadGaps.reduce((a, b) => a + b, 0);
+  const startX = stageW / 2 - totalWidth / 2;
+  const centerY = stageH / 2;
+
+  const dur = segObj.duration;
+  const stagger = segObj.stagger;
+  const startScale = segObj.startScale / 100;
+  const easing = segObj.easing;
+  const slideDistance = segObj.slideDistance;
+  const reverseOrder = isOut && !!segObj.reverseOrder;
+  const maxStep = getMirrorMaxStep(n);
+
+  let xCursor = startX;
+  for (let i = 0; i < n; i++) {
+    xCursor += leadGaps[i];
+    const slotW = slotWidths[i];
+    const slotItemH = slotHeights[i];
+    const step = getMirrorStep(i, n);
+    // Reversed-order outros: outer slots animate first, middle last.
+    const delay = (reverseOrder ? (maxStep - step) : step) * stagger;
+    const t = Math.max(0, Math.min(1, (localTMs - delay) / dur));
+    const e = easeFromString(easing, t);
+    // Intro: progress 0→1 (start state → rest). Outro: 1→0 (rest → start state).
+    const progress = isOut ? 1 - e : e;
+    const xOffsetStart = getSlideOffset(i, n, slideDistance);
+    const xOffset = xOffsetStart * (1 - progress);
+    const scale = startScale + (1 - startScale) * progress;
+    const opacity = progress;
+    const cxStage = xCursor + slotW / 2 + xOffset;
+    const cyStage = centerY;
+    const img = images[i];
+    if (img) {
+      ctx.save();
+      ctx.globalAlpha = opacity;
+      const drawH = slotItemH * scale;
+      const drawW = slotW * scale;
+      const padScaleX = img.padScaleX || img.padScale || 1;
+      const padScaleY = img.padScaleY || img.padScale || 1;
+      const destW = drawW * padScaleX;
+      const destH = drawH * padScaleY;
+      ctx.drawImage(img, offsetX + (cxStage - destW / 2) * s, offsetY + (cyStage - destH / 2) * s, destW * s, destH * s);
+      ctx.restore();
+    }
+    xCursor += slotW;
+  }
+}
+
+// Supersampled wrapper for drawSegmentFrame (mirrors drawFrameSupersampled).
+function drawSegmentFrameSupersampled(ctx, w, h, seg, localTMs, iconImages, a8cImages) {
+  const MAX_SS_PIXELS = 64 * 1024 * 1024;
+  let ss = FRAME_SUPERSAMPLE;
+  while (ss > 1 && w * h * ss * ss > MAX_SS_PIXELS) ss--;
+  const ssW = Math.round(w * ss);
+  const ssH = Math.round(h * ss);
+  if (!ctx._ssCanvas || ctx._ssCanvas.width !== ssW || ctx._ssCanvas.height !== ssH) {
+    ctx._ssCanvas = document.createElement('canvas');
+    ctx._ssCanvas.width = ssW;
+    ctx._ssCanvas.height = ssH;
+    ctx._ssCtx = ctx._ssCanvas.getContext('2d');
+    ctx._ssCtx.imageSmoothingEnabled = true;
+    ctx._ssCtx.imageSmoothingQuality = 'high';
+  }
+  drawSegmentFrame(ctx._ssCtx, ssW, ssH, seg, localTMs, iconImages, a8cImages);
+  ctx.clearRect(0, 0, w, h);
+  halvingDownsample(ctx, ctx._ssCanvas, w, h);
+}
+
+// Wraps drawSegmentFrameSupersampled with sequencer math: picks the right
+// segment for the given global time and computes its local time, optionally
+// holding the last frame between segments.
+function drawSequenceFrameSupersampled(ctx, w, h, timeline, globalTMs, iconImages, a8cImages) {
+  const it = findSegmentForTime(timeline, globalTMs);
+  // If we're past this segment's end (i.e., inside the post-segment hold), clamp.
+  const localT = Math.min(globalTMs - it.startMs, it.durMs);
+  drawSegmentFrameSupersampled(ctx, w, h, it.seg, localT, iconImages, a8cImages);
+}
+
 function drawFrame(ctx, w, h, timeMs, iconImages) {
   if (state.bgOn) { ctx.fillStyle = state.bgColor; ctx.fillRect(0, 0, w, h); }
   else ctx.clearRect(0, 0, w, h);
@@ -4249,7 +5285,11 @@ function drawFrame(ctx, w, h, timeMs, iconImages) {
     ctx.save();
     ctx.globalAlpha = opacity;
     const drawSize = slotSize * scale;
-    ctx.drawImage(img, offsetX + (cx - drawSize / 2) * s, offsetY + (cy - drawSize / 2) * s, drawSize * s, drawSize * s);
+    // Account for the transparent margin baked into the bitmap so the visible
+    // icon still occupies `drawSize` while AA fringe pixels are preserved.
+    const padScale = img.padScale || 1;
+    const destSize = drawSize * padScale;
+    ctx.drawImage(img, offsetX + (cx - destSize / 2) * s, offsetY + (cy - destSize / 2) * s, destSize * s, destSize * s);
     ctx.restore();
   }
 }
@@ -4265,12 +5305,11 @@ function downloadBlob(blob, filename) {
 
 // Build a descriptive filename like "icon-stage_1920x1080_high-q_v1.mp4".
 // `extra` is an optional segment (e.g. 'preset' for preset JSON).
-const APP_VERSION = 'v1';
+const APP_VERSION = 'v2';
 function buildFilename(ext, extra) {
   const parts = ['product-logos-slide-tool'];
   if (extra) parts.push(extra);
   parts.push(state.resolution || '1920x1080');
-  parts.push((state.quality || 'medium') + '-q');
   parts.push(APP_VERSION);
   return parts.join('_') + '.' + ext;
 }
@@ -4384,8 +5423,15 @@ async function exportPNG() {
   const ctx = canvas.getContext('2d');
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-  const imgs = await renderIconsToImages(getIconRenderSize(w, h));
-  drawFrame(ctx, w, h, state.totalDuration + 1000, imgs);
+  // PNG = the final frame of the LAST selected segment. For intros this is the
+  // settled state; for outros the items have already faded away.
+  const timeline = buildExportTimeline();
+  const last = timeline.items[timeline.items.length - 1];
+  const needIcons = !isA8cSeg(last.seg);
+  const needLetters = isA8cSeg(last.seg);
+  const iconImages = needIcons ? await renderIconsToImages(getIconRenderSize(w, h)) : [];
+  const a8cImages  = needLetters ? await renderA8cLettersToImages(getA8cRenderSize(w, h)) : [];
+  drawSegmentFrameSupersampled(ctx, w, h, last.seg, last.durMs + 100, iconImages, a8cImages);
   canvas.toBlob(blob => {
     downloadBlob(blob, buildFilename('png'));
     showToast('PNG exported');
@@ -4404,7 +5450,7 @@ async function exportGIF() {
   // GIFs are still capped (they get enormous fast) but the cap follows quality
   const gifW = Math.min(w, q.gifMaxW);
   const gifH = Math.round(gifW * (h / w));
-  const fps = state.quality === 'high' ? 30 : 25;
+  const fps = 30;
   const delayMs = Math.round(1000 / fps);
 
   const canvas = document.createElement('canvas');
@@ -4414,16 +5460,20 @@ async function exportGIF() {
   ctx.imageSmoothingQuality = 'high';
 
   showToast('Rasterizing icons…');
-  const imgs = await renderIconsToImages(getIconRenderSize(gifW, gifH));
+  const timeline = buildExportTimeline();
+  const needIcons = timeline.items.some(it => !isA8cSeg(it.seg));
+  const needLetters = timeline.items.some(it => isA8cSeg(it.seg));
+  const iconImages = needIcons ? await renderIconsToImages(getIconRenderSize(gifW, gifH)) : [];
+  const a8cImages  = needLetters ? await renderA8cLettersToImages(getA8cRenderSize(gifW, gifH)) : [];
 
   showToast('Encoding GIF…');
   const enc = GIFEncoder();
-  const totalMs = state.totalDuration + 600;
+  const totalMs = timeline.totalMs + 300;
   const frameCount = Math.ceil((totalMs / 1000) * fps);
 
   for (let f = 0; f <= frameCount; f++) {
     const t = (f / fps) * 1000;
-    drawFrame(ctx, gifW, gifH, t, imgs);
+    drawSequenceFrameSupersampled(ctx, gifW, gifH, timeline, t, iconImages, a8cImages);
     const data = ctx.getImageData(0, 0, gifW, gifH).data;
     // Quality-tuned palette: more colors + finer color space at higher quality
     const palette = quantize(data, q.gifColors, { format: q.gifKsize });
@@ -4442,11 +5492,11 @@ function savePreset() {
   const data = {
     version: 2, timestamp: Date.now(),
     state: {
-      count: state.count, spacing: state.spacing, scale: state.scale, stageZoom: state.stageZoom,
+      count: state.count, spacing: state.spacing, scale: state.scale, a8cScale: state.a8cScale, stageZoom: state.stageZoom,
       duration: state.duration, stagger: state.stagger, slideDistance: state.slideDistance,
       startScale: state.startScale, easing: state.easing, bgOn: state.bgOn, bgColor: state.bgColor,
       aspectRatio: state.aspectRatio,
-      resolution: state.resolution, fps: state.fps, quality: state.quality, library: state.library, assignments: state.assignments,
+      resolution: state.resolution, fps: state.fps, library: state.library, assignments: state.assignments,
     },
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -4651,6 +5701,8 @@ function bindUIFromState() {
   });
   document.getElementById('r-stagezoom').value = state.stageZoom;
   document.getElementById('v-stagezoom').value = state.stageZoom;
+  document.getElementById('r-a8cscale').value = state.a8cScale;
+  document.getElementById('v-a8cscale').value = state.a8cScale;
   // Easing dropdown reflects the actual or "__auto__" sentinel
   document.getElementById('s-easing').value = (state.auto && state.auto.easing) ? '__auto__' : state.easing;
   document.getElementById('bg-color').value = state.bgColor;
@@ -4660,18 +5712,154 @@ function bindUIFromState() {
   document.getElementById('bg-off').classList.toggle('active', !state.bgOn);
   document.getElementById('s-resolution').value = state.resolution;
   document.getElementById('s-fps').value = state.fps;
-  document.getElementById('s-quality').value = state.quality || 'medium';
+  document.querySelectorAll('#exportRange button[data-range]').forEach(b => {
+    b.classList.toggle('active', b.dataset.range === (state.exportRange || 'all'));
+  });
+  bindSecondaryAnimationPanelsFromState();
+  // Reflect active segment in timeline + panel-open state.
+  document.querySelectorAll('#timeline .timeline-seg').forEach(b => {
+    b.classList.toggle('active', b.dataset.segment === state.activeSegment);
+  });
+  document.querySelectorAll('.section[data-segment]').forEach(p => {
+    p.classList.toggle('open', p.dataset.segment === state.activeSegment);
+  });
+  // Keep the in-line timeline dropdowns in sync with state (Speed slider edits, restore, etc.).
+  if (typeof syncTimelineDropdowns === 'function') syncTimelineDropdowns();
+  // Reflect each outro panel's order-of-movement toggle.
+  document.querySelectorAll('.order-toggle').forEach(group => {
+    const seg = group.dataset.orderSeg;
+    const reversed = !!(state.segments && state.segments[seg] && state.segments[seg].reverseOrder);
+    group.querySelectorAll('button').forEach(b => {
+      b.classList.toggle('active', b.dataset.order === (reversed ? 'reversed' : 'default'));
+    });
+  });
   applyAutoUI();
   requestAnimationFrame(updateBgIndicator);
+}
+
+// Per-panel slider/easing IDs for the 3 secondary segments. The Animate IN panel
+// (logosIn) uses the legacy bare IDs and is handled by the original SLIDER_KEYS path.
+const SECONDARY_PANELS = [
+  { seg: 'logosOut', prefix: 'logosout' },
+  { seg: 'a8cIn',    prefix: 'a8cin' },
+  { seg: 'a8cOut',   prefix: 'a8cout' },
+];
+const SEG_SLIDER_KEYS = [
+  { key: 'duration',      suffix: 'duration',   seconds: true  },
+  { key: 'stagger',       suffix: 'stagger',    seconds: false },
+  { key: 'slideDistance', suffix: 'slide',      seconds: false },
+  { key: 'startScale',    suffix: 'startscale', seconds: false },
+];
+
+function formatSegVal(key, val, isAuto) {
+  if (isAuto) return 'A';
+  if (key === 'duration') return (val / 1000).toFixed(1) + 's';
+  return String(val);
+}
+
+// Push state.segments[<seg>] values into each secondary panel's slider/easing inputs.
+function bindSecondaryAnimationPanelsFromState() {
+  SECONDARY_PANELS.forEach(({ seg, prefix }) => {
+    const segObj = state.segments && state.segments[seg];
+    if (!segObj) return;
+    SEG_SLIDER_KEYS.forEach(({ key, suffix }) => {
+      const r = document.getElementById('r-' + prefix + '-' + suffix);
+      const v = document.getElementById('v-' + prefix + '-' + suffix);
+      if (!r || !v) return;
+      r.value = segObj[key];
+      v.value = formatSegVal(key, segObj[key], !!(segObj.auto && segObj.auto[key]));
+    });
+    const easing = document.getElementById('s-' + prefix + '-easing');
+    if (easing) easing.value = (segObj.auto && segObj.auto.easing) ? '__auto__' : segObj.easing;
+  });
+}
+
+// Wire input handlers for the 3 secondary panels. Each slider/easing change writes
+// directly to state.segments[<seg>] (not the legacy top-level mirror, which belongs
+// to the active segment only).
+function bindSecondaryAnimationPanels() {
+  SECONDARY_PANELS.forEach(({ seg, prefix }) => {
+    SEG_SLIDER_KEYS.forEach(({ key, suffix, seconds }) => {
+      const r = document.getElementById('r-' + prefix + '-' + suffix);
+      const v = document.getElementById('v-' + prefix + '-' + suffix);
+      if (!r || !v) return;
+      const min = +r.min, max = +r.max, step = +r.step || 1;
+      const formatVal = (n) => seconds ? (n / 1000).toFixed(1) + 's' : String(n);
+      const parseVal = (str) => {
+        if (seconds) {
+          const n = parseFloat(String(str).replace(/[^0-9.\-]/g, ''));
+          return isNaN(n) ? NaN : Math.round(n * 1000);
+        }
+        return parseFloat(str);
+      };
+      r.oninput = () => {
+        const segObj = state.segments[seg];
+        segObj[key] = +r.value;
+        if (segObj.auto && segObj.auto[key]) segObj.auto[key] = false;
+        v.value = formatVal(+r.value);
+        applyAutoUI();
+        if (seg === state.activeSegment) { syncTopFromActiveSegment(); renderStage(); }
+        persist();
+      };
+      const commit = () => {
+        const segObj = state.segments[seg];
+        let n = parseVal(v.value);
+        if (isNaN(n)) { v.value = formatSegVal(key, segObj[key], !!(segObj.auto && segObj.auto[key])); return; }
+        if (n < min) n = min;
+        if (n > max) n = max;
+        n = Math.round((n - min) / step) * step + min;
+        n = Math.round(n * 1000) / 1000;
+        r.value = n;
+        segObj[key] = n;
+        if (segObj.auto && segObj.auto[key]) segObj.auto[key] = false;
+        v.value = formatVal(n);
+        applyAutoUI();
+        if (seg === state.activeSegment) { syncTopFromActiveSegment(); renderStage(); }
+        persist();
+      };
+      v.addEventListener('blur', commit);
+      v.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); commit(); v.blur(); }
+        else if (e.key === 'Escape') {
+          const segObj = state.segments[seg];
+          v.value = formatSegVal(key, segObj[key], !!(segObj.auto && segObj.auto[key]));
+          v.blur();
+        }
+      });
+      v.addEventListener('focus', () => v.select());
+    });
+    const easing = document.getElementById('s-' + prefix + '-easing');
+    if (easing) {
+      easing.onchange = (e) => {
+        const segObj = state.segments[seg];
+        const val = e.target.value;
+        if (val === '__auto__') {
+          setSegmentAutoMode(seg, 'easing', true);
+        } else {
+          if (segObj.auto) segObj.auto.easing = false;
+          segObj.easing = val;
+          if (seg === state.activeSegment) { syncTopFromActiveSegment(); renderStage(); }
+          applyAutoUI();
+          persist();
+        }
+      };
+    }
+  });
 }
 
 // Apply visual auto/custom state to every controllable row:
 //   - .is-auto class on the row (dims slider/select, shows "A" or appropriate value)
 //   - the inline AUTO/CUSTOM hover button text
+// Each row is matched to its segment by its closest [data-segment] ancestor; rows
+// outside any segment panel fall back to the top-level state.auto (composition keys).
 function applyAutoUI() {
   document.querySelectorAll('[data-auto-key]').forEach(row => {
     const key = row.dataset.autoKey;
-    const isAuto = !!(state.auto && state.auto[key]);
+    const seg = row.closest('[data-segment]')?.dataset.segment;
+    const segObj = seg && state.segments && state.segments[seg];
+    const isAuto = segObj
+      ? !!(segObj.auto && segObj.auto[key])
+      : !!(state.auto && state.auto[key]);
     row.classList.toggle('is-auto', isAuto);
     const btn = row.querySelector('.auto-toggle');
     if (btn) btn.textContent = isAuto ? 'CUSTOM' : 'AUTO';
@@ -4707,6 +5895,8 @@ function applyOverallButtonsUI() {
 
 // Flip every Overall key to the same auto state. When turning auto ON for a
 // key, recompute its value from the auto anchor table (same as setAutoMode).
+// Mirrors animation-key flips into the active segment so the underlying segment
+// state stays in sync with the visible Animate IN panel.
 function setAllAuto(on) {
   if (!state.auto) state.auto = {};
   OVERALL_KEYS.forEach(key => {
@@ -4716,6 +5906,18 @@ function setAllAuto(on) {
       else state[key] = getAutoValue(key, state.count);
     }
   });
+  if (state.segments) {
+    const seg = state.segments[state.activeSegment];
+    if (seg) {
+      if (!seg.auto) seg.auto = {};
+      ANIM_FIELDS.forEach(key => {
+        if (OVERALL_KEYS.includes(key)) {
+          seg.auto[key] = on;
+          seg[key] = state[key];
+        }
+      });
+    }
+  }
   bindUIFromState();
   renderStage();
   persist();
@@ -4734,6 +5936,32 @@ function setAutoMode(key, on) {
       state[key] = getAutoValue(key, state.count);
     }
   }
+  // Mirror animation-key auto changes into the active segment's auto flags.
+  if (ANIM_FIELDS.includes(key) && state.segments) {
+    const seg = state.segments[state.activeSegment];
+    if (seg) {
+      if (!seg.auto) seg.auto = {};
+      seg.auto[key] = on;
+      seg[key] = state[key];
+    }
+  }
+  bindUIFromState();
+  renderStage();
+  persist();
+}
+
+// Per-segment counterpart of setAutoMode. Used by the 3 secondary panels (the rows
+// that live inside [data-segment] containers other than the active one).
+function setSegmentAutoMode(seg, key, on) {
+  const segObj = state.segments && state.segments[seg];
+  if (!segObj) return;
+  if (!segObj.auto) segObj.auto = {};
+  segObj.auto[key] = on;
+  if (on) {
+    segObj[key] = key === 'easing' ? AUTO_EASING : getAutoValue(key, state.count);
+  }
+  // If the user toggled auto on the active segment via a secondary path, mirror back.
+  if (seg === state.activeSegment) syncTopFromActiveSegment();
   bindUIFromState();
   renderStage();
   persist();
@@ -4755,6 +5983,7 @@ function bindEvents() {
     ['r-count', 'count', 'v-count'],
     ['r-spacing', 'spacing', 'v-spacing'],
     ['r-scale', 'scale', 'v-scale'],
+    ['r-a8cscale', 'a8cScale', 'v-a8cscale'],
     ['r-stagezoom', 'stageZoom', 'v-stagezoom'],
     ['r-duration', 'duration', 'v-duration'],
     ['r-stagger', 'stagger', 'v-stagger'],
@@ -4765,7 +5994,8 @@ function bindEvents() {
     const r = document.getElementById(rid);
     const v = document.getElementById(vid);
     const min = +r.min;
-    const max = +r.max;
+    // max is read live so the icon-count cap can shift with aspect ratio.
+    const getMax = () => +r.max;
     const step = +r.step || 1;
     const isSeconds = v.dataset.format === 'seconds';
 
@@ -4801,6 +6031,8 @@ function bindEvents() {
       }
       renderStage();
       persist();
+      // Persist syncs top→segment; only after that does the dropdown see the new value.
+      if (ANIM_FIELDS.includes(key) && typeof syncTimelineDropdowns === 'function') syncTimelineDropdowns();
     };
 
     // Value input: commit on Enter or blur, clamp to range
@@ -4808,6 +6040,7 @@ function bindEvents() {
       let n = parseVal(v.value);
       if (isNaN(n)) { v.value = formatVal(state[key]); return; }
       // Clamp
+      const max = getMax();
       if (n < min) n = min;
       if (n > max) n = max;
       // Snap to step
@@ -4829,6 +6062,7 @@ function bindEvents() {
       }
       renderStage();
       persist();
+      if (ANIM_FIELDS.includes(key) && typeof syncTimelineDropdowns === 'function') syncTimelineDropdowns();
     };
     v.addEventListener('blur', commitNumber);
     v.addEventListener('keydown', (e) => {
@@ -4859,16 +6093,31 @@ function bindEvents() {
     }
   };
 
-  // Auto-toggle buttons (one per .ctrl[data-auto-key] and the easing row)
+  // Auto-toggle buttons (one per .ctrl[data-auto-key] and the easing row).
+  // Segment-aware: rows inside a segment panel flip that segment's auto flag; rows
+  // outside any segment (composition: spacing, scale) flip the top-level state.auto.
   document.querySelectorAll('[data-auto-key] .auto-toggle').forEach(btn => {
     btn.onclick = (e) => {
       e.stopPropagation();
       const row = btn.closest('[data-auto-key]');
       const key = row.dataset.autoKey;
-      const isAuto = !!(state.auto && state.auto[key]);
-      setAutoMode(key, !isAuto);
+      const seg = row.closest('[data-segment]')?.dataset.segment;
+      if (seg && state.segments[seg]) {
+        const segObj = state.segments[seg];
+        const isAuto = !!(segObj.auto && segObj.auto[key]);
+        setSegmentAutoMode(seg, key, !isAuto);
+      } else {
+        const isAuto = !!(state.auto && state.auto[key]);
+        setAutoMode(key, !isAuto);
+      }
     };
   });
+
+  // Wire the 3 secondary animation panels (Animate OUT, A8C Intro, A8C Outro).
+  // Each panel's sliders/easing update state.segments[<seg>] directly. The Animate IN
+  // panel keeps its legacy IDs and bindings — its mirror to state.segments.logosIn is
+  // handled by syncActiveSegmentFromTop() inside persist().
+  bindSecondaryAnimationPanels();
 
   // Global "Overall Control" buttons — flip every Overall key at once.
   // When the buttons are in the "mixed" state, clicking either one snaps
@@ -4916,7 +6165,17 @@ function bindEvents() {
 
   document.getElementById('s-resolution').onchange = (e) => { state.resolution = e.target.value; persist(); };
   document.getElementById('s-fps').onchange = (e) => { state.fps = +e.target.value; persist(); };
-  document.getElementById('s-quality').onchange = (e) => { state.quality = e.target.value; persist(); };
+
+  // Export segment range buttons (1/2/3/4/ALL). Single selection.
+  document.querySelectorAll('#exportRange button[data-range]').forEach(btn => {
+    btn.onclick = () => {
+      state.exportRange = btn.dataset.range;
+      document.querySelectorAll('#exportRange button').forEach(b => {
+        b.classList.toggle('active', b.dataset.range === state.exportRange);
+      });
+      persist();
+    };
+  });
 
   document.getElementById('btn-load-defaults').onclick = loadDefaults;
   document.getElementById('btn-clear-lib').onclick = () => {
@@ -4996,6 +6255,39 @@ function bindEvents() {
 
   document.getElementById('theme-light').onclick = () => applyTheme('light');
   document.getElementById('theme-dark').onclick = () => applyTheme('dark');
+
+  // Timeline segment switcher — focuses one of the 4 animation segments AND plays it.
+  document.querySelectorAll('#timeline .timeline-seg').forEach(btn => {
+    btn.onclick = (e) => {
+      // Clicks on the duration dropdown shouldn't bubble up as a segment focus.
+      if (e.target.matches('select')) return;
+      setActiveSegment(btn.dataset.segment);
+      // Replay even when the segment was already active.
+      playback.start('playing');
+    };
+  });
+  // Populate + wire the per-segment duration dropdowns and inter-segment pause dropdowns.
+  syncTimelineDropdowns();
+  bindTimelineDropdowns();
+  // "Order of movement" toggles on the two outro panels.
+  document.querySelectorAll('.order-toggle').forEach(group => {
+    const seg = group.dataset.orderSeg;
+    group.querySelectorAll('button[data-order]').forEach(btn => {
+      btn.onclick = () => {
+        const segObj = state.segments && state.segments[seg];
+        if (!segObj) return;
+        segObj.reverseOrder = btn.dataset.order === 'reversed';
+        group.querySelectorAll('button').forEach(b => b.classList.toggle('active', b === btn));
+        if (seg === state.activeSegment) renderStage(true);
+        persist();
+      };
+    });
+  });
+  // PLAY ALL — walks all 4 segments + pauses on the live stage.
+  document.getElementById('btn-play-all').onclick = () => {
+    if (playback.mode === 'playing-all') { playback.stop(); }
+    else { startPlayAll(); }
+  };
 
   // Aspect ratio switcher
   document.querySelectorAll('#aspectSwitch button[data-ar]').forEach(btn => {

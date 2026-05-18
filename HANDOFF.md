@@ -1,19 +1,19 @@
 # Product Logos Slide Tool — Project Handoff
 
-This document captures the state of the **Product Logos Slide Tool** (internal nickname: *Icon Stage*) as of v1.2.0 so a fresh Claude session can pick up from here without re-deriving context. Read it top to bottom before making changes.
+This document captures the state of the **Product Logos Slide Tool** (internal nickname: *Icon Stage*) as of **v2.0.0** so a fresh Claude session can pick up from here without re-deriving context. Read it top to bottom before making changes.
 
 ## Quick links
 
 - **Live site:** https://nick-a8c.github.io/product-logos-slide-tool/
 - **Source:** https://github.com/nick-a8c/product-logos-slide-tool
 - **Owner:** Nebojsa Jurcic (`nick-a8c`)
-- **Current version:** v1.2.0
+- **Current version:** v2.0.0
 
 ## What this project is
 
-A single-file HTML tool that animates a row of brand icons appearing center-outward and exports the result as MP4, WebM, GIF, animated SVG, or PNG. Built for a motion designer at Automattic (Nebojsa) for use during Radical Speed Month and beyond. Initially scoped as a self-serve alternative to MOGRT for non-Adobe users (sales/business folks). The whole thing lives in **one HTML file** with all dependencies inlined — drop it on any disk, double-click, it works offline.
+A single-file HTML tool that composes a **four-segment brand animation** — `Logos Intro → Logos Outro → A8C Intro → A8C Outro` — and exports any segment or the full sequence as MP4, WebM, GIF, animated SVG, or PNG. Built for a motion designer at Automattic (Nebojsa) for use during Radical Speed Month and beyond. Initially scoped as a self-serve alternative to MOGRT for non-Adobe users (sales/business folks). The whole thing lives in **one HTML file** with all dependencies inlined — drop it on any disk, double-click, it works offline.
 
-The deliverable is `product-logos-slide-tool.html` (~240 KB as of v1.2.0). Plain HTML/CSS/JS, no build step, no framework. The repo also contains an identical `index.html` for GitHub Pages serving.
+The deliverable is `product-logos-slide-tool.html` (~300 KB as of v2.0.0). Plain HTML/CSS/JS, no build step, no framework. The repo also contains an identical `index.html` for GitHub Pages serving — **keep these two files in sync** after any edit.
 
 ## Audience and tone
 
@@ -21,19 +21,7 @@ The deliverable is `product-logos-slide-tool.html` (~240 KB as of v1.2.0). Plain
 - Communication style: informal, direct, action-oriented
 - Prefers concise practical guidance over broad framing
 - Will tell you what to fix in plain terms; assume good design taste, no need to over-explain
-- This is the user's first serious GitHub project — be patient with git/GitHub workflow questions, but don't over-explain the code itself
-
-## File layout in the working directory
-
-```
-/home/claude/icon-tool/
-  product-logos-slide-tool.html              # The single deliverable. All code, all deps, all SVGs.
-  product-logos-slide-tool-v1.0.1-fallback.html  # Pre-25-icon snapshot.
-  product-logos-slide-tool-v1.1.0-fallback.html  # Pre-Overall-Control snapshot.
-  HANDOFF.md                                  # This doc.
-```
-
-Outputs go to `/mnt/user-data/outputs/product-logos-slide-tool.html` and are surfaced via `present_files` after each iteration.
+- Walk through GitHub clicks step-by-step when needed (he prefers UI workflow over CLI for repo tasks)
 
 ## Architecture
 
@@ -42,170 +30,240 @@ Outputs go to `/mnt/user-data/outputs/product-logos-slide-tool.html` and are sur
 The HTML body has, in order:
 1. **Inlined `gifenc`** (~9 KB IIFE-wrapped, exposes `window.gifenc`) — GIF encoder
 2. **Inlined `mp4-muxer`** (~73 KB IIFE-wrapped, exposes `window.Mp4Muxer`) — MP4 container muxer
-3. **Main app script** — everything else
+3. **Main app script** — everything else (~220 KB)
 
-Both libraries were sourced from the npm registry (the only allowed CDN in this environment), wrapped in IIFEs to keep their internal short-named vars from leaking into global scope, and inlined so the file is fully self-contained.
+Both libraries were inlined at v1.0.0 from the npm registry, wrapped in IIFEs to keep their internal short-named vars from leaking into global scope.
 
 ### State
 
-`state` is a single global object holding everything. Persisted to `localStorage` under key `icon-stage-v2` (kept this key name for backward compatibility — don't rename without a migration). Key fields:
+`state` is a single global object persisted to `localStorage` under key `icon-stage-v2` (don't rename without a migration). Top-level fields:
 
-- `count`, `spacing`, `scale`, `stageZoom` — composition (default count = 15)
-- `duration` (ms), `stagger` (ms), `slideDistance`, `startScale`, `easing` — animation
-- `auto: { spacing, scale, duration, stagger, slideDistance, startScale, easing }` — per-control auto-mode flags. **All true by default for fresh installs.** Existing saves (no `auto` key) get them all `false` for backward compatibility.
-- `bgOn`, `bgColor`, `aspectRatio`, `resolution`, `quality`, `fps`
+- **Composition** (single global, applies to logo icons only): `count`, `spacing`, `scale`, `stageZoom`
+- **A8C composition** (separate so the icon Spacing slider doesn't affect the wordmark): `a8cScale`
+- **Animation mirror** (top-level fields that mirror the *active* segment's animation params): `duration`, `stagger`, `slideDistance`, `startScale`, `easing`, `auto`. These exist purely so legacy read sites (playAnimation, drawFrame, export functions) don't need per-call indirection. `syncTopFromActiveSegment()` / `syncActiveSegmentFromTop()` keep these in sync.
+- **Per-segment animation params**: `state.segments = { logosIn, logosOut, a8cIn, a8cOut }`. Each contains `{ duration, stagger, slideDistance, startScale, easing, auto: {…}, reverseOrder }`. `reverseOrder` is outro-only.
+- **Active segment**: `state.activeSegment` — one of `'logosIn' | 'logosOut' | 'a8cIn' | 'a8cOut'`. Drives stage rendering, the top-level mirror, and which animation panel is open.
+- **Timeline pauses**: `state.segmentPauses = { logosInToOut, logosOutToA8cIn, a8cInToOut }` (seconds)
+- **Export range**: `state.exportRange` — `'1' | '2' | '3' | '4' | 'all'`
+- `bgOn`, `bgColor`, `aspectRatio`, `resolution`, `fps`
 - `library` (uploaded SVGs), `assignments` (slot → icon id mapping)
-- `theme`, `panelState` (`docked` / `undocked` / `hidden`), `panelX`, `panelY`
+- `theme`, `panelState`, `panelX`, `panelY`
 
-### Default icon library and curated layouts (v1.1.0)
+### The four-segment model (v2.0.0)
 
-`DEFAULT_ICONS` ships 25 Automattic brand SVGs with **stable IDs** `'01'`–`'25'` (matching their numeric prefix in the source filenames: `01_tumblr.svg`, `02_p2.svg`, etc.). User-uploaded icons still get random IDs from `uid()`. Numeric-string IDs and 8-char hex IDs don't collide.
+Conceptually the animation is a sequence of four segments, played in this order:
 
-`DEFAULT_LAYOUTS[count]` returns an array of icon IDs (in slot order, left to right) for any count from 2 to 25. Anchor counts have hand-curated arrangements:
+| # | Segment | Content | Direction |
+|---|---|---|---|
+| 1 | `logosIn` | Logo icons | Intro (start → rest) |
+| 2 | `logosOut` | Logo icons | Outro (rest → end) |
+| 3 | `a8cIn` | AUTOMATTIC wordmark (10 letters) | Intro |
+| 4 | `a8cOut` | AUTOMATTIC wordmark (10 letters) | Outro |
 
-- **2:** `[10, 19]` (WordPress.com, WordPress VIP)
-- **5:** `[01, 10, 17, 18, 19]` (Tumblr, WP.com, Jetpack, Woo, WP VIP)
-- **9:** `[01, 10, 11, 12, 16, 17, 18, 19, 24]`
-- **15:** `[01, 02, 07, 08, 09, 10, 11, 12, 15, 16, 17, 18, 19, 20, 24]` ← **default count on fresh load**
-- **25:** all icons in numeric order
+Helpers: `isA8cSeg(seg)`, `isOutSeg(seg)`, `getSegmentSlotCount(seg)` (10 for a8c, `state.count` for logos), `getSegmentTotalDuration(seg)` = `stagger * maxStep + duration`.
 
-Counts between anchors inherit from the lower anchor and append icons in numeric order from the next anchor's set. **At anchor crossings (5, 9, 15, 25) the slot order re-shuffles to the curated arrangement** — this is intentional, per Nebojsa's spec.
+The active segment determines:
+- Which content the stage shows (icons vs letters) via `renderStage()`'s `isA8cSegment()` branch
+- Which animation params apply (via the top-level mirror)
+- Which animation panel is auto-opened
+- Which timeline pill is highlighted
 
-### Auto-fill behavior
+### Animation engines
 
-`autoFillNewSlots()` runs after the count slider changes. It pulls icons from `DEFAULT_LAYOUTS[count]`, **skipping IDs that are already in earlier slots** (so manual placements are preserved), and fills `null` slots from the remaining pool. If a layout references an icon not in the user's library (e.g. they removed it), that icon is silently skipped. Result: empty slots only appear when the user explicitly removes an icon from the library.
+#### Intro engine (logosIn, a8cIn)
+
+For each slot `i` of `n` total:
+- `step = getMirrorStep(i, n)` — distance from center (0 for middle)
+- `delay = step * stagger`
+- Slot starts at `translateX(xOffset) scale(startScale) opacity(0)` and animates to `translateX(0) scale(1) opacity(1)` over `duration` ms
+- `xOffset = getSlideOffset(i, n, slideDistance)` — signed pixel offset (outer slots move more)
+
+#### Outro engine (logosOut, a8cOut)
+
+Same mechanics, reversed direction: from rest → start state.
+- `delay = (reverseOrder ? (maxStep - step) : step) * stagger`
+- Slot starts at `translateX(0) scale(1) opacity(1)` and animates to `translateX(xOffset) scale(startScale) opacity(0)`
+
+`reverseOrder` is the **Order of movement** toggle on the outro panels:
+- **Inner first** (default, `reverseOrder=false`) — mirror-natural: middle leaves first
+- **Outer first** (`reverseOrder=true`) — mirror-inverted: outermost leaves first
+
+### A8C wordmark splitting
+
+The Automattic logo SVG is embedded as `A8C_LOGO_SOURCE_SVG`. On first access, `getA8cLetters()`:
+1. Appends the SVG into a hidden positioned `<div>` so `getBBox()` works
+2. Groups the 11 source paths into 10 letter slots via `A8C_LETTER_GROUPS` (the O outline + the diagonal slash are combined into one "O" entry)
+3. Computes each letter's bounding box (`w`, `h`, `srcX`, `srcY`)
+4. Constructs a per-letter SVG with a viewBox cropped to the letter's bounding box
+
+The letters are cached in `A8C_LETTERS_CACHE` after first access. `A8C_WORDMARK_REF_H = 43` is the reference line-height used to scale the wordmark — `scaleFactor = slotH / A8C_WORDMARK_REF_H`, where `slotH = getA8cSlotSize() = 80 * (state.a8cScale / 100)`. Inter-letter spacing comes from the source SVG positions (not the icon Spacing slider).
+
+### Timeline UI
+
+Sits inside `.stage-area` below the stage, above the floating bottom bar. Structure:
+
+```
+[Logos Intro pill | duration dropdown]
+  [pause gap | pause dropdown]
+[Logos Outro pill | duration dropdown]
+  [pause gap | pause dropdown]
+[A8C Intro pill | duration dropdown]
+  [pause gap | pause dropdown]
+[A8C Outro pill | duration dropdown]
+```
+
+Each pill is a `<button class="timeline-seg">` with a fill track + label + duration `<select>`. Each gap is a `<div class="timeline-gap">` with a short bar + pause `<select>`.
+
+Dropdown options are 16 discrete values: `[0, 0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 4, 5, 6, 7, 8, 9, 10]` seconds. The duration dropdown maps directly to `state.segments[seg].duration` (× 1000 ms); changing it also flips that segment's `auto.duration` to false. The Speed slider in the matching animation panel stays bidirectionally synced via `syncTimelineDropdowns()` (which is called inside `bindUIFromState` and at the end of the legacy slider handlers).
+
+Clicking a timeline pill calls `setActiveSegment(seg)` AND immediately fires `playback.start('playing')` so the segment animates.
+
+### Playback controller
+
+`const playback = { mode, … }` is a tiny state machine over the play buttons. Modes:
+- `'idle'` — at rest
+- `'playing'` — single segment, auto-reverts after segment duration
+- `'looping'` — single segment, repeats every cycle
+- `'playing-all'` — async iteration through all 4 segments + pauses
+
+PLAY ALL is `startPlayAll()` — an async loop that:
+1. Calls `setActiveSegment(seg, { play: true })` for each segment in order
+2. Waits `getSegmentTotalDuration(seg)` ms
+3. Waits `getPauseSecondsBetween(seg, nextSeg) * 1000` ms before continuing
+4. Checks `playback.mode !== 'playing-all'` between steps to allow cancellation
+
+The `playback` controller's `updateUI()` paints all three buttons:
+- PLAY SEGMENT: blue solid (active) / blue solid (idle)
+- LOOP SEGMENT: outlined
+- PLAY ALL: neutral fill (dark in light mode, light in dark mode — defined with explicit `:root[data-theme="dark"]` override so it stays visible in both themes)
+
+### Aspect ratios + icon cap
+
+Six ratios with fixed canvas dimensions (`ASPECT_RATIOS`): 16:9 / 21:9 / 4:3 / 9:16 / 4:5 / 1:1.
+
+Vertical/square aspects (`9:16`, `4:5`, `1:1`) cap the icon count at **18** because more icons overflow the stage. `getMaxCountForAspect(ar)` returns 18 vs 25. `applyCountLimitForAspect()` updates the slider's `max` attribute and clamps `state.count` when switching.
+
+A second auto-anchor table, `AUTO_ANCHORS_RESTRICTED`, provides tighter spacing/scale values for those aspects so 18 icons fit cleanly. `getAutoValue(key, n)` picks the restricted table when key ∈ {spacing, scale} and the active aspect is restricted.
+
+### Export pipeline (v2.0.0 — heavily upgraded)
+
+#### Sequencer
+
+`buildExportTimeline()` returns `{ items: [{ seg, startMs, durMs, endMs }], totalMs }` for the selected range. `findSegmentForTime(timeline, t)` locates which segment owns a given global time. Inter-segment pauses come from `state.segmentPauses`.
+
+Every per-frame export call goes through `drawSequenceFrameSupersampled(ctx, w, h, timeline, globalT, iconImages, a8cImages)`, which delegates to `drawSegmentFrameSupersampled(ctx, w, h, seg, localT, iconImages, a8cImages)`.
+
+#### Per-segment frame renderer
+
+`drawSegmentFrame()`:
+1. Picks images (`iconImages` or `a8cImages`) and slot count from the segment
+2. Computes per-slot widths + lead-gaps. For A8C: widths come from each letter's natural aspect at the A8C scale, gaps come from the source SVG positions scaled by `slotH / A8C_WORDMARK_REF_H`. For icons: uniform widths, gap = `state.spacing`.
+3. Iterates slots: applies the segment's animation params (duration, stagger, easing, slideDistance, startScale) and direction (in vs out). For outros with `reverseOrder`, inverts the stagger delay.
+4. Draws each slot's bitmap centered at its computed position with padding compensation (`padScaleX/Y`).
+
+#### Supersampling
+
+`drawSegmentFrameSupersampled()` allocates an offscreen canvas at `4× output resolution`, renders the segment frame into it, then downsamples to the output canvas via `halvingDownsample()` (each step is a 2:1 reduction, which Chrome reliably honors as proper averaging — single-shot large drawImage downsamples produce binary edges on transparent regions). SS factor is clamped by `MAX_SS_PIXELS = 64 MP` so 4K exports don't OOM.
+
+#### SVG bitmap rasterization
+
+`renderIconsToImages(renderSize)` and `renderA8cLettersToImages(renderSize)` pre-rasterize each SVG into a padded offscreen canvas:
+- Target raster = `max(512, ceil(renderSize * 6))` so even tiny on-screen icons start from a high-res bitmap
+- 6% transparent padding (`ICON_RASTER_PAD_RATIO`) on each side so the downsample filter has fringe room for AA
+- Each bitmap carries `.padScaleX` / `.padScaleY` so `drawSegmentFrame` enlarges the draw rectangle to compensate
+
+#### Quality presets
+
+`EXPORT_QUALITY` is a single object (the old `low`/`medium`/`high` table was collapsed into one top-tier preset in v2.0.0 when the Quality dropdown was removed). Values:
+- `videoBpp: 1.0` — video bitrate per pixel per frame
+- `keyframeIntervalSec: 0` — every frame is a keyframe (visually lossless MP4)
+- `gifMaxW: 1920` — GIF width cap (matches canvas)
+- `gifColors: 256`, `gifKsize: 'rgb565'` — palette quantization
+- GIF uses fixed `fps = 30`
+
+#### Export functions
+
+- **WebM** (`generateWebMBlob`): VP9 with alpha when bg off, via `MediaRecorder` + `canvas.captureStream`. Routes through the sequencer.
+- **MP4** (`exportMP4`): H.264 via WebCodecs `VideoEncoder` + `mp4-muxer`. Even dimensions enforced. Tries codecs in order: `avc1.640034`/`640028` (High) → `4D0028` (Main) → `42E028` (Baseline). Routes through the sequencer.
+- **GIF** (`exportGIF`): gifenc with palette quantization. Routes through the sequencer.
+- **PNG** (`exportPNG`): final frame of the *last* selected segment via `drawSegmentFrameSupersampled` at `lastSeg.durMs + 100`.
+- **Animated SVG** (`exportSVG`): SMIL via inline `<animateTransform>` / `<animate>` elements. **Note**: still renders only the active segment (full-sequence SVG would need keyframe concatenation; not implemented yet).
+- **Embed code**: CSS keyframes HTML snippet via clipboard.
 
 ### Auto mode
 
-Every animation-affecting control has Auto mode that derives its value from `state.count`. Anchor table at counts `[2, 5, 9, 15, 19, 25]`, linearly interpolated for in-between counts, clamped at endpoints. See `AUTO_ANCHORS` in code.
+Animation autos are per-segment (in `state.segments[seg].auto`). Composition autos (spacing, scale) are top-level.
 
-UI: hover the label to reveal an `AUTO`/`CUSTOM` toggle. Auto-on shows `A` in the value field, dims slider+thumb to non-interactive. Manually moving any slider auto-flips that control to Custom. Easing is special: dropdown stays clickable in Auto mode, picking any concrete easing flips to Custom; picking the "Auto (Original)" option flips to Auto.
+`recomputeAuto()` is called whenever `state.count` changes. It walks all 4 segments and recomputes any auto-enabled values from the `AUTO_ANCHORS` table interpolated at the current count.
 
-### Overall Control (v1.2.0)
+`setSegmentAutoMode(seg, key, on)` is the per-segment version of `setAutoMode(key, on)`. The latter is for legacy top-level changes (active segment's auto via Overall Control buttons + the Animate IN panel's row toggles).
 
-A new "Control" section sits at the top of the panel with two side-by-side buttons: **AUTO** and **CUSTOM**. They're a global shortcut to flip every Auto-capable control at once.
+### Live preview crispness
 
-- `OVERALL_KEYS` array lists the 7 keys: `spacing`, `scale`, `duration`, `stagger`, `slideDistance`, `startScale`, `easing`
-- `getOverallState()` returns `'all-auto'` / `'all-custom'` / `'mixed'` based on `state.auto` flags
-- `applyOverallButtonsUI()` paints the buttons + adds `.mixed` class to the container when state is mixed
-- `setAllAuto(on)` flips every key in `OVERALL_KEYS`, recomputing values when turning ON
-- **Hooked into `applyAutoUI()`** — every per-key change automatically re-paints the Overall buttons
+Removed `will-change: transform, opacity` from `.icon-slot` in v2.0.0. With `will-change`, the browser baked each slot into a compositor-layer bitmap *before* the stage's `transform: scale()` ancestor downscale, causing visible pixelation. Without it, SVGs render vector-clean at the final composite scale.
 
-Visual states:
-- **All-auto**: AUTO is solid blue, CUSTOM is plain outlined
-- **All-custom**: CUSTOM is solid blue, AUTO is plain outlined
-- **Mixed**: both buttons are outlined and dimmed (opacity 0.55), no blue on either — signals partial state
+Animation perf hasn't degraded — the GPU still handles transform/opacity transitions without the explicit hint.
 
-### Animation model
+### CSS variables for theming
 
-- Icons appear center-outward with **true mirror staggering**: `getMirrorStep(i, n)` returns distance-from-center for index `i` of `n` total. Pairs equidistant from center fire simultaneously.
-- Slide distance: slider `-50` to `+50`. Negative = icons start compressed inward and flare out; positive = start spread outward and contract in. Outermost icons travel ±100px max (slider × 2). Travel scales linearly with distance from center; middle icon doesn't move.
-- Default easing: `cubic-bezier(0.28, 0, 0, 1)` ("Original")
+All UI components must use `var(--button-secondary-bg)`, `var(--button-secondary-border)`, `var(--text)`, `var(--text-secondary)`, `var(--accent)` etc. — these flip correctly between light and dark modes.
 
-### Aspect ratios
+Avoid hardcoded fallbacks like `var(--input-bg, #f6f6f6)` — those don't exist as variables, so the fallback applies in both themes. Use the actual defined vars instead.
 
-Six ratios with fixed canvas dimensions (`ASPECT_RATIOS` table): 16:9 / 21:9 / 4:3 / 9:16 / 4:5 / 1:1. Each maps to a canvas size used for both rendering and as the default export resolution. Resolution dropdown is auto-populated when the user picks a ratio.
-
-### Panel UX
-
-Top-right floating card, 340px wide. Three states: `docked` (default, top-right) / `undocked` (floating, ~20% shorter, vertically centered, draggable via 8-dot handle) / `hidden` (offscreen).
-
-Two stacked buttons on the panel's left edge:
-- **Top button = dock/undock toggle**. Arrow points ↖ when docked (click to undock), ↘ when undocked (click to re-dock).
-- **Bottom button = hide**. Always shows `>`. Click to slide panel offscreen right.
-
-When hidden, a small `<` tab appears centered on the right edge of the screen. Click to restore to whichever state the panel was in before hiding (`docked` or `undocked`).
-
-### Centered top/bottom bars
-
-Light/dark switch (top-center) and aspect-ratio + play/loop bar (bottom-center) both use `--right-offset` CSS variable so they recenter relative to the *stage area*, not the viewport. Set in `setPanelState`:
-- `docked` → `--right-offset: 388px`
-- `undocked` / `hidden` → `--right-offset: 0px`
-
-### Quality system
-
-`QUALITY_PRESETS` table with `low`/`medium`/`high`. Affects MP4, WebM, GIF (PNG and SVG are lossless, unaffected). `getQuality()` returns the active preset.
-
-- `videoBpp`: bits per pixel per frame for video bitrate calc → `Math.max(2_000_000, w*h*fps*videoBpp)`
-- `gifMaxW`, `gifColors`, `gifKsize`: GIF width cap, palette color count, color-space format
-- `keyframeIntervalSec`: MP4 keyframe interval. `0` means "every frame is a keyframe" (used by High for visually lossless output)
-
-### Export pipeline
-
-- **Quality fix**: `renderIconsToImages(renderSize)` pre-rasterizes each SVG to an offscreen canvas at 2× the target render size before any export. Without this step, browsers rasterize SVGs at default ~300px and `ctx.drawImage` upscales, producing fuzzy edges.
-- **WebM**: VP9 with alpha when bg off, via `MediaRecorder` + `canvas.captureStream`
-- **MP4**: H.264 via WebCodecs `VideoEncoder` API + `mp4-muxer`. Even dimensions enforced. Tries codecs in order: `avc1.640034`/`640028` (High) → `4D0028` (Main) → `42E028` (Baseline). Fully offline. Chrome/Edge/Safari 16.4+ only (no Firefox).
-- **GIF**: gifenc with palette quantization. No workers.
-- **Animated SVG**: SMIL via inline `<animateTransform>` / `<animate>` elements
-- **PNG**: final frame rasterized via the same canvas pipeline
-- **Embed code**: CSS keyframes HTML snippet via clipboard
-
-### Filename format
-
-`buildFilename(ext, extra?)` → `product-logos-slide-tool[_extra]_<resolution>_<quality>-q_v1.<ext>`. Examples:
-- `product-logos-slide-tool_1920x1080_high-q_v1.mp4`
-- `product-logos-slide-tool_1080x1920_medium-q_v1.gif`
-- `product-logos-slide-tool_preset_1920x1080_medium-q_v1.json`
-
-`APP_VERSION` constant controls the `v1` suffix — bump on major changes.
-
-## Critical CSS / JS patterns to know
-
-- `.stage-inner` needs `flex-shrink: 0` to prevent flex parent shrinking (was a bug where 16:9 canvas displayed squashed)
-- `pointer-events: none` on `.ctrl.is-auto .slider` but **not** on `.row.is-auto select` (dropdown stays clickable in Auto mode for easing)
-- All `.val` number inputs are `type="text"` — number inputs silently reject non-numeric strings, so they couldn't display "A" for Auto mode
-- The Overall Control buttons read `state.auto` flags via `getOverallState()` — never store separate "overall" state. Single source of truth is the per-key flags.
+For elements that need to look the same in both themes (e.g. the PLAY ALL button's distinct neutral pill), define an explicit `:root[data-theme="dark"]` override rather than relying on `--text` (which flips).
 
 ## Migrations in `restore()`
 
 Existing `localStorage` saves get migrated:
-- `panelState: 'docked-open'` / `'docked-closed'` → `'docked'`
+- Legacy panel-state values (`'docked-open'` / `'docked-closed'`) → `'docked'`
 - `stagger > 100` → divided by 4 (old 0–400 range, new 0–100)
 - `slideDistance > 50` → reset to 0
 - `spacing > 40` → linearly mapped from old 20–240 to new 0–40
 - Missing `aspectRatio` → inferred from old resolution string
 - Missing `auto` key → all auto flags set to `false` (preserve existing manual values)
+- **v2.0.0**: missing `segments` → built from defaults; legacy top-level `duration`/`stagger`/etc. migrated into `segments.logosIn`. Missing `segmentPauses` → defaulted to `{ logosInToOut: 0.5, logosOutToA8cIn: 0.5, a8cInToOut: 0.5 }`. `reverseOrder` missing on any segment → false. `a8cScale > 80` clamped to 80 (the slider tightened from 40–200 to 10–80 in v2.0.0).
 
-**v1.1.0 note:** Existing users with localStorage from v1.0.x have a 9-icon library with random IDs. They will NOT get the new 25-icon library automatically (their library is preserved). When they slide count above what they have, `autoFillNewSlots` will fail to find icons matching `DEFAULT_LAYOUTS` IDs (`'01'`..`'25'`) and leave those slots empty. They can hit "Reset / Load defaults" to upgrade. This is acceptable behavior.
+## What's done (v2.0.0)
 
-## What's done
-
-V1.2.0. All export formats work offline. Auto mode for all 7 controllable parameters with per-row toggles. **Overall Control (global AUTO/CUSTOM buttons) at top of panel.** Quality presets (low/medium/high) for video + GIF. Light/dark theme. Six aspect ratios. Dock/undock/hide panel UX. Top and bottom bars track stage area. **25 default brand icons** with curated layouts at every count. Default count = 15 on fresh load. Auto-fill on count grow with manual placements preserved. Mirror-staggered animation with proportional slide distance. Descriptive filenames. localStorage persistence with migrations. ~240 KB single-file HTML. Live on GitHub Pages with auto-deploy via GitHub Actions.
+All export formats work offline. Four-segment timeline (Logos Intro / Logos Outro / A8C Intro / A8C Outro) with per-segment animation panels. Auto mode for all 5 animation params per segment + Overall Control buttons (active segment scope). AUTOMATTIC wordmark split into 10 letter elements rendered with natural source-SVG spacing. Inter-segment pauses (0–10s) honored by both live PLAY ALL and export sequencer. Export range selector (1/2/3/4/ALL) feeds sequencer that swaps content/params/direction per segment. PLAY SEGMENT / LOOP SEGMENT / PLAY ALL. Order of movement toggle on outros. A8C scale slider (10–80) in its own section. 4× supersampled export rendering with halving downsample + 6× SVG bitmap raster + padding for AA fringe. Removed Quality dropdown (always top-tier). Six aspect ratios with 18-icon cap on vertical/square. ~300 KB single-file HTML. Live on GitHub Pages.
 
 ## What's pending or open
 
-- **Node.js 20 deprecation warning** in the GitHub Actions workflow — needs updating the `actions/checkout`, `actions/configure-pages`, etc. to versions that support Node 24 by **June 2, 2026**. Easy fix when the new versions are tagged.
-- **Pablo's feedback loop** — sent update on May 1, 2026. v1.2.0 might be more compelling for the "self-serve for non-editors" persona.
-- **Possible future work**: more anchor points in `DEFAULT_LAYOUTS` if curated set needs more/fewer icons; user presets / sharing via URL hash; explicit "preset library" feature; per-icon offset/easing overrides
-- **Known limits**: MP4 won't preserve transparency (H.264); WebCodecs MP4 only works in Chromium browsers + Safari 16.4+; FFmpeg.wasm fallback was removed (was bloat)
+- **Animated SVG full-sequence export** — currently exportSVG renders only the active segment. Adding multi-segment concatenated keyframes is doable but non-trivial (needs careful timeline math for SMIL animation timing) and was deprioritized for v2.0.0.
+- **Per-letter A8C overrides** — every A8C letter currently animates with the same segment params. Per-letter offset/easing overrides would be a nice-to-have for fine-tuned wordmark choreography.
+- **Node.js 20 deprecation warning** in the GitHub Actions workflow — should be fixed by June 2, 2026 (update `actions/checkout`, `actions/configure-pages` etc. to versions supporting Node 24).
+- **Known limits**: MP4 won't preserve transparency (H.264); WebCodecs MP4 only works in Chromium + Safari 16.4+; Firefox lacks WebCodecs.
 
 ## Conventions Claude should follow when iterating
 
-- **One change at a time, small diffs.** Use `str_replace` not full-file rewrites.
-- **Always run a parse check** on the JS blocks after edits: `node -e "..."` to catch syntax errors before deploying.
-- **Always copy the file to `/mnt/user-data/outputs/` and call `present_files`** at the end of each turn.
+- **One change at a time, small diffs.** Use `Edit` not full-file rewrites.
+- **Always run a parse check** on the JS after risky edits to catch syntax errors before deploying.
+- **Verify in the preview** (preview_eval) after any change that's observable in the browser. Don't claim "works" without inspecting state or DOM.
+- **Keep the dual deliverable in sync.** After editing `index.html`, copy it to `product-logos-slide-tool.html`:
+  ```bash
+  cp index.html product-logos-slide-tool.html
+  ```
 - **Don't ask permission for tiny obvious things** but **do ask** when:
-  - The user's spec is ambiguous (e.g. "AUTO/CUSTOM" semantics needed clarification)
+  - The user's spec is ambiguous
   - There are competing valid interpretations
-  - A change has cross-cutting consequences
-- **Prefer fixing the root cause** over patching symptoms (e.g. the "A doesn't show" bug was solved by changing input type, not by hacking display logic)
+  - A change has cross-cutting consequences (e.g. the v2.0.0 four-segment refactor was scoped via 4 upfront questions)
+- **Prefer fixing the root cause** over patching symptoms
 - **Trust user feedback over your own assumptions** about how things look — they're the designer
 - **Save a fallback before risky changes.** When the user okays a destructive or hard-to-revert change, copy the current working file as `product-logos-slide-tool-vX.Y.Z-fallback.html` first.
-- The `userMemories` block has long-form context about Nebojsa, his work at Automattic, and prior Claude sessions. Skim it for tone but don't over-rely on it.
-- For GitHub workflow questions: this user is new to git/GitHub. Walk through clicks step-by-step with screenshots. Don't assume command-line familiarity.
+- For GitHub workflow questions: this user prefers UI clicks over command line. Walk through screen-by-screen when needed.
 
 ## Useful one-liners
 
-Deploy current state:
+Find a function:
 ```bash
-cp /home/claude/icon-tool/product-logos-slide-tool.html /mnt/user-data/outputs/product-logos-slide-tool.html
+grep -n "function exportMP4\|setActiveSegment\|drawSegmentFrame\|startPlayAll" index.html
 ```
 
 Parse-check all script blocks:
 ```bash
 node -e "
 const fs = require('fs');
-const html = fs.readFileSync('/home/claude/icon-tool/product-logos-slide-tool.html', 'utf8');
+const html = fs.readFileSync('index.html', 'utf8');
 const re = /<script>([\\s\\S]*?)<\\/script>/g;
 let m, idx = 0;
 while ((m = re.exec(html))) {
@@ -217,7 +275,14 @@ console.log('Parsed', idx, 'script blocks OK');
 "
 ```
 
-Find a function quickly:
+Keep the deliverables synced:
 ```bash
-grep -n "function exportMP4\|setPanelState\|setAllAuto\|getOverallState" /home/claude/icon-tool/product-logos-slide-tool.html
+cp index.html product-logos-slide-tool.html
+```
+
+Git deploy:
+```bash
+git add -A
+git commit -m "your message"
+git push origin main
 ```
