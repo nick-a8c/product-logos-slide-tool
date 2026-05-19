@@ -145,7 +145,9 @@
     overflow: hidden;
     position: relative;
   }
-  .timeline-bar--gap { background: var(--stage-border, #d8d8d8); opacity: 0.7; }
+  /* Gap track is darker than segment tracks but no opacity dimming — opacity on
+     the parent would cap the fill child's effective opacity (group rendering). */
+  .timeline-bar--gap { background: var(--stage-border, #d8d8d8); }
   .timeline-bar-fill {
     position: absolute;
     inset: 0;
@@ -1243,7 +1245,7 @@
         </div>
       </button>
       <div class="timeline-gap">
-        <div class="timeline-bar timeline-bar--gap"></div>
+        <div class="timeline-bar timeline-bar--gap"><div class="timeline-bar-fill"></div></div>
         <div class="timeline-meta">
           <select class="timeline-pause" data-pause="logosInToOut"></select>
         </div>
@@ -1256,7 +1258,7 @@
         </div>
       </button>
       <div class="timeline-gap">
-        <div class="timeline-bar timeline-bar--gap"></div>
+        <div class="timeline-bar timeline-bar--gap"><div class="timeline-bar-fill"></div></div>
         <div class="timeline-meta">
           <select class="timeline-pause" data-pause="logosOutToA8cIn"></select>
         </div>
@@ -1269,7 +1271,7 @@
         </div>
       </button>
       <div class="timeline-gap">
-        <div class="timeline-bar timeline-bar--gap"></div>
+        <div class="timeline-bar timeline-bar--gap"><div class="timeline-bar-fill"></div></div>
         <div class="timeline-meta">
           <select class="timeline-pause" data-pause="a8cInToOut"></select>
         </div>
@@ -3681,20 +3683,26 @@ const state = {
   // export code paths keep working without per-call indirection.
   activeSegment: 'logosIn',
   segments: {
-    logosIn:  { duration: 700, stagger: 20, slideDistance: 0, startScale: 40, easing: 'cubic-bezier(0.28, 0, 0, 1)', auto: { duration: true, stagger: true, slideDistance: true, startScale: true, easing: true } },
-    logosOut: { duration: 700, stagger: 20, slideDistance: 0, startScale: 40, easing: 'cubic-bezier(0.28, 0, 0, 1)', auto: { duration: true, stagger: true, slideDistance: true, startScale: true, easing: true } },
-    a8cIn:    { duration: 700, stagger: 20, slideDistance: 0, startScale: 40, easing: 'cubic-bezier(0.28, 0, 0, 1)', auto: { duration: true, stagger: true, slideDistance: true, startScale: true, easing: true } },
-    a8cOut:   { duration: 700, stagger: 20, slideDistance: 0, startScale: 40, easing: 'cubic-bezier(0.28, 0, 0, 1)', auto: { duration: true, stagger: true, slideDistance: true, startScale: true, easing: true } },
+    // Intro segments stay fully AUTO — at count=15 the auto-anchor table resolves
+    // their duration to 1000ms (1s), matching the spec's "Logos/A8C intro = 1s".
+    logosIn:  { duration: 700, stagger: 20, slideDistance: 0,  startScale: 40, easing: 'cubic-bezier(0.28, 0, 0, 1)', auto: { duration: true, stagger: true, slideDistance: true, startScale: true, easing: true }, reverseOrder: false },
+    // Designed outro defaults: outer-first stagger, faster speed, modest slide-out.
+    logosOut: { duration: 700, stagger: 35, slideDistance: 6,  startScale: 70, easing: 'cubic-bezier(0.28, 0, 0, 1)', auto: { duration: false, stagger: false, slideDistance: false, startScale: false, easing: true }, reverseOrder: true },
+    a8cIn:    { duration: 700, stagger: 20, slideDistance: 0,  startScale: 40, easing: 'cubic-bezier(0.28, 0, 0, 1)', auto: { duration: true, stagger: true, slideDistance: true, startScale: true, easing: true }, reverseOrder: false },
+    // A8C outro: gentler — no horizontal slide, slower per-letter speed.
+    a8cOut:   { duration: 900, stagger: 21, slideDistance: 0,  startScale: 55, easing: 'cubic-bezier(0.28, 0, 0, 1)', auto: { duration: false, stagger: false, slideDistance: false, startScale: false, easing: true }, reverseOrder: true },
   },
   bgOn: true, bgColor: '#ffffff',
   aspectRatio: '16:9',
-  resolution: '1920x1080', fps: 60,
+  // First-load default = Large (3840×2160 for 16:9). populateResolutionDropdown
+  // will keep this selected on boot; switching aspect re-snaps to that ratio's standard.
+  resolution: '3840x2160', fps: 60,
   // Which segment(s) the exporters render: '1'/'2'/'3'/'4' = a single segment
   // (logosIn/logosOut/a8cIn/a8cOut respectively), 'all' = the full 4-segment sequence.
   exportRange: 'all',
   // Pause length (seconds) between consecutive segments — applied both in the
   // live PLAY ALL sequencer and in the export timeline.
-  segmentPauses: { logosInToOut: 0.5, logosOutToA8cIn: 0.5, a8cInToOut: 0.5 },
+  segmentPauses: { logosInToOut: 2, logosOutToA8cIn: 0, a8cInToOut: 2 },
   library: [], assignments: [],
   isPlaying: false, playStartTime: 0,
   editingSlot: -1,
@@ -4113,6 +4121,59 @@ function populateResolutionDropdown() {
   }
 }
 
+// --- Timeline bar fill animation -------------------------------------------
+// The .timeline-bar-fill element is normally driven by the .active CSS class
+// (width 100% when focused, 0% otherwise). During playback we override via
+// inline styles so the fill animates left-to-right over the segment's actual
+// duration, then either snaps back to the CSS-driven state (single segment
+// playback ends → stays focused at 100%) or fades out (PLAY ALL moves to the
+// next segment → previous bar fades to gray track).
+function getTimelineFill(seg) {
+  return document.querySelector('.timeline-seg[data-segment="' + seg + '"] .timeline-bar-fill');
+}
+function getPauseFill(pauseKey) {
+  const sel = document.querySelector('.timeline-pause[data-pause="' + pauseKey + '"]');
+  return sel ? sel.closest('.timeline-gap').querySelector('.timeline-bar-fill') : null;
+}
+// Internal: animate a single fill element 0→100% over durationMs.
+function _startFillEl(fill, durationMs) {
+  if (!fill) return;
+  fill.style.transition = 'none';
+  fill.style.width = '0%';
+  fill.style.opacity = '1';
+  void fill.offsetWidth; // force reflow so the next transition picks up the reset
+  fill.style.transition = 'width ' + Math.max(50, durationMs) + 'ms linear';
+  fill.style.width = '100%';
+}
+// Internal: fade a fill element to invisible, then silently snap to the empty
+// resting state (avoids the visible bounce-back from CSS-driven width reset).
+function _fadeFillEl(fill) {
+  if (!fill) return;
+  fill.style.transition = 'opacity 0.4s ease';
+  fill.style.opacity = '0';
+  setTimeout(() => {
+    fill.style.transition = 'none';
+    fill.style.opacity = '1';
+    fill.style.width = '0%';
+  }, 410);
+}
+function _resetFillEl(fill) {
+  if (!fill) return;
+  fill.style.transition = '';
+  fill.style.width = '';
+  fill.style.opacity = '';
+}
+// Public API — segment bars
+function startTimelineBarFill(seg, durationMs) { _startFillEl(getTimelineFill(seg), durationMs); }
+function fadeTimelineBar(seg) { _fadeFillEl(getTimelineFill(seg)); }
+function resetTimelineBar(seg) { _resetFillEl(getTimelineFill(seg)); }
+// Public API — inter-segment pause bars
+function startPauseBarFill(pauseKey, durationMs) { _startFillEl(getPauseFill(pauseKey), durationMs); }
+function fadePauseBar(pauseKey) { _fadeFillEl(getPauseFill(pauseKey)); }
+function resetAllTimelineBars() {
+  document.querySelectorAll('.timeline-bar-fill').forEach(_resetFillEl);
+}
+
 // Switch which segment drives the stage / Animate IN-style controls. Saves the
 // current top-level animation values into the outgoing segment, loads the
 // incoming segment into the top-level mirror, and updates timeline + panel UI.
@@ -4218,13 +4279,27 @@ async function startPlayAll() {
     if (playback.mode !== 'playing-all') break;
     const seg = sequence[i];
     setActiveSegment(seg, { play: true });
+    // Drive the timeline bar fill 0→100% over this segment's actual duration.
+    startTimelineBarFill(seg, getSegmentTotalDuration(seg));
     // Wait for the segment's full animation (stagger × maxStep + duration).
     const segMs = getSegmentTotalDuration(seg) + 60;
     await wait(segMs);
     if (playback.mode !== 'playing-all') break;
     if (i < sequence.length - 1) {
-      const pauseSec = getPauseSecondsBetween(seg, sequence[i + 1]);
-      await wait(pauseSec * 1000);
+      const nextSeg = sequence[i + 1];
+      // Fade the just-finished segment's bar to gray before moving on.
+      fadeTimelineBar(seg);
+      const pauseKey = SEGMENT_TRANSITION_PAUSE[seg + '->' + nextSeg];
+      const pauseMs = getPauseSecondsBetween(seg, nextSeg) * 1000;
+      if (pauseKey && pauseMs > 0) {
+        // Fill the pause track 0→100% over the pause duration, then fade.
+        startPauseBarFill(pauseKey, pauseMs);
+        await wait(pauseMs);
+        if (playback.mode !== 'playing-all') break;
+        fadePauseBar(pauseKey);
+      } else {
+        await wait(pauseMs);
+      }
     }
   }
   if (playback.mode === 'playing-all') playback.mode = 'idle';
@@ -4239,9 +4314,17 @@ function applyAspectRatio(ar) {
   document.querySelectorAll('#aspectSwitch button').forEach(b => {
     b.classList.toggle('active', b.dataset.ar === ar);
   });
-  // Reset resolution to this ratio's standard
+  // Keep the current resolution if it's still a valid option for this aspect
+  // (small / standard / large). Otherwise snap to this ratio's standard.
   const r = ASPECT_RATIOS[ar];
-  state.resolution = r.w + 'x' + r.h;
+  const validOptions = [
+    Math.round(r.w / 2) + 'x' + Math.round(r.h / 2),
+    r.w + 'x' + r.h,
+    (r.w * 2) + 'x' + (r.h * 2),
+  ];
+  if (!validOptions.includes(state.resolution)) {
+    state.resolution = r.w + 'x' + r.h;
+  }
   populateResolutionDropdown();
   applyCountLimitForAspect();
   // Re-render stage at new dimensions (skip animation to avoid replaying on every click)
@@ -4593,16 +4676,23 @@ const playback = {
     const total = state.totalDuration + 200; // small breathing room
 
     if (mode === 'playing') {
+      // Drive the timeline bar fill from 0→100% over the actual segment duration.
+      startTimelineBarFill(state.activeSegment, state.totalDuration);
       // Auto-revert to idle when the animation completes
       this.endTimer = setTimeout(() => {
         this.mode = 'idle';
         this.endTimer = null;
+        // After single-shot playback, the segment is still focused — clear the
+        // inline bar styles so the CSS .active rule keeps the bar at 100%.
+        resetTimelineBar(state.activeSegment);
         this.updateUI();
       }, total);
     } else if (mode === 'looping') {
-      // Re-trigger the animation every cycle
+      startTimelineBarFill(state.activeSegment, state.totalDuration);
+      // Re-trigger the animation every cycle, and restart the bar with it.
       this.loopTimer = setInterval(() => {
         playAnimation();
+        startTimelineBarFill(state.activeSegment, state.totalDuration);
       }, total + 400);
     }
     this.updateUI();
@@ -4619,6 +4709,8 @@ const playback = {
       slot.style.opacity = '1';
       slot.style.transform = 'translateX(0px) scale(1)';
     });
+    // Reset inline bar styles so the CSS .active rule reclaims control.
+    resetAllTimelineBars();
     this.updateUI();
   },
 

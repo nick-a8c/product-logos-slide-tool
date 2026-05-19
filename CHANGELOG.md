@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.0.1] — 2026-05-19
+
+A polish pass on top of v2.0.0 — defaults that match the intended choreography, timeline-bar animation that tracks playback time, and a couple of boot-order bug fixes.
+
+### Added
+
+- **Animated timeline progress bars.** Each segment's track fills 0→100% over the segment's actual animation duration, then fades opacity → 0 before the next phase. Inter-segment pause tracks animate the same way over the pause duration. Single PLAY SEGMENT bar settles back to the static blue resting state after the animation finishes.
+
+### Changed
+
+- **First-load defaults retuned to a sensible "designed" choreography**:
+  - Overall Control = AUTO
+  - Logos Intro = 1s (auto-derived), pause = 2s
+  - Logos Outro = 700ms / stagger 35 / slide 6 / startScale 70 / Outer-first
+  - Pause = 0s
+  - A8C Intro = 1s (auto-derived), pause = 2s
+  - A8C Outro = 900ms / stagger 21 / slide 0 / startScale 55 / Outer-first
+- **Default export Resolution = Large** (3840×2160 for 16:9 boot) on first install.
+- A8C scale slider tightened to the **10–80** range (was 40–200); default 40.
+
+### Fixed
+
+- `applyAspectRatio()` no longer clobbers a still-valid current resolution on boot — it now only resets to the ratio's Standard when the current resolution isn't among that ratio's small/standard/large options.
+- Timeline bar no longer "bounces back" after fade-out — the fade ends in the empty resting state in a single silent step rather than clearing inline styles and letting the CSS width transition animate 100→0%.
+- `APP_VERSION` bumped to `v2` (changes export filename suffix to `_v2.<ext>`).
+
 ## [2.0.0] — 2026-05-19
 
 A major rebuild. The single-segment intro animation is now a **four-segment timeline** (Logos Intro → Logos Outro → A8C Intro → A8C Outro), with a new AUTOMATTIC wordmark asset, sequenced exports, and a substantially upgraded export rendering pipeline.
