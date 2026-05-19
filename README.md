@@ -7,6 +7,7 @@ A single-file browser tool for composing a four-segment brand animation — **lo
 ——
 
 ![Icon Stage screenshot](examples/01-setings-update-01.png)
+![Icon Stage screenshot](03-icon-number-control-med-update_1.png)
 
 ## What it does
 
