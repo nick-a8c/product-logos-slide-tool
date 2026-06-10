@@ -495,7 +495,7 @@
   }
 
   /* When the slider is in auto mode, dim the slider track + thumb and the value */
-  .ctrl.is-auto .slider { opacity: 0.4; pointer-events: none; }
+  .ctrl.is-auto .slider { opacity: 0.4; cursor: pointer; }
   .ctrl.is-auto .val { color: var(--text-tertiary); }
   /* In auto mode, also dim the easing dropdown */
   .row.is-auto select { opacity: 0.55; }
@@ -5808,12 +5808,9 @@ function bindUIFromState() {
     b.classList.toggle('active', b.dataset.range === (state.exportRange || 'all'));
   });
   bindSecondaryAnimationPanelsFromState();
-  // Reflect active segment in timeline + panel-open state.
+  // Reflect active segment in timeline.
   document.querySelectorAll('#timeline .timeline-seg').forEach(b => {
     b.classList.toggle('active', b.dataset.segment === state.activeSegment);
-  });
-  document.querySelectorAll('.section[data-segment]').forEach(p => {
-    p.classList.toggle('open', p.dataset.segment === state.activeSegment);
   });
   // Keep the in-line timeline dropdowns in sync with state (Speed slider edits, restore, etc.).
   if (typeof syncTimelineDropdowns === 'function') syncTimelineDropdowns();
@@ -6441,6 +6438,9 @@ function boot() {
   // Compute initial auto-derived values for any sliders flagged auto
   recomputeAuto();
   bindUIFromState();
+  document.querySelectorAll('.section[data-segment]').forEach(p => {
+    p.classList.toggle('open', p.dataset.segment === state.activeSegment);
+  });
   bindEvents();
   requestAnimationFrame(() => {
     renderStage();
