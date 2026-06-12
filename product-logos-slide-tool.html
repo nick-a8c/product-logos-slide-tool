@@ -1458,8 +1458,15 @@
           </div>
           <div class="ctrl">
             <label>Speed</label>
-            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringspeed" min="0" max="60" step="1" value="10"></div>
-            <input type="text" class="val" id="v-ringspeed" value="10" data-min="0" data-max="60" data-step="1">
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringspeed" min="0" max="60" step="1" value="3"></div>
+            <input type="text" class="val" id="v-ringspeed" value="3" data-min="0" data-max="60" data-step="1">
+          </div>
+          <div class="ctrl-row">
+            <span class="name">Direction</span>
+            <div class="overall-buttons" id="ringDirButtons">
+              <button class="overall-btn active" id="btn-ringdir-fwd" type="button">FORWARD</button>
+              <button class="overall-btn" id="btn-ringdir-rev" type="button">REVERSE</button>
+            </div>
           </div>
           <div class="ctrl">
             <label>Icon Size</label>
@@ -1881,6 +1888,7 @@
             <button class="btn primary full" id="btn-export-png">↓ Export PNG (Final Frame)</button>
             <button class="btn primary full" id="btn-copy-embed">⧉ Copy embed code</button>
             <button class="btn primary full" id="btn-export-html">↓ Export Interactive HTML</button>
+            <p class="hint" id="ringSpeedNote" style="display:none">Video length is one full revolution (360 ÷ speed). Speed up your loop to at least 7 to render video.</p>
           </div>
           <p class="hint">WebM keeps transparency when background is off. MP4 is H.264 (works everywhere — Slack, P2, Twitter) but doesn't preserve transparency. Animated SVG is self-contained — paste it into HTML, P2, or anywhere SVG renders.</p>
         </div>
@@ -3867,8 +3875,12 @@ const STORAGE_KEY = 'icon-stage-v2';
 // v2.1 ring layout defaults. radius is % of half the canvas width; size is the
 // front icon's height as % of canvas height; blur is px at 1080p (scaled with
 // resolution); depth/fade are % falloff toward the back of the ring.
+// Video exports cover one revolution (360/speed seconds), so slow rings make
+// very long renders. Below this speed the video buttons lock.
+const RING_MIN_VIDEO_SPEED = 7;
+
 const RING_DEFAULTS = {
-  radius: 65, tilt: 32, angle: -18, speed: 3,
+  radius: 65, tilt: 32, angle: -18, speed: 3, reverse: false,
   size: 12, depth: 16, blur: 16, fade: 46,
   // Interaction off by default: no hover effect, ripple strength zero.
   hoverMode: 'none', hoverAmt: 35, hoverSpread: 0,
@@ -4802,7 +4814,7 @@ function ringFrame(t) {
   const dt = Math.min(0.1, Math.max(0, (t - ringLastT) / 1000));
   ringLastT = t;
   const R = state.ring;
-  ringBaseAngle = (ringBaseAngle + R.speed * dt) % 360;
+  ringBaseAngle = (ringBaseAngle + R.speed * dt * (R.reverse ? -1 : 1)) % 360;
   ringRipples = ringRipples.filter(r => (t - r.start) / 1000 <= RING_RIPPLE_LIFE);
 
   const canvas = getCanvas();
@@ -5217,6 +5229,7 @@ async function generateWebMBlob() {
 }
 
 async function exportWebM() {
+  if (ringVideoLocked()) { showToast('Ring speed is below 7 — speed it up to render video'); return; }
   const blob = await generateWebMBlob();
   downloadBlob(blob, buildFilename('webm'));
   showToast('WebM exported (' + (blob.size / 1024 / 1024).toFixed(1) + ' MB)');
@@ -5225,6 +5238,7 @@ async function exportWebM() {
 // MP4 export via WebCodecs (browser-native H.264 encoder) + mp4-muxer.
 // Works in Chrome/Edge/Safari 16.4+. No external scripts, no large downloads.
 async function exportMP4() {
+  if (ringVideoLocked()) { showToast('Ring speed is below 7 — speed it up to render video'); return; }
   // Feature check
   if (typeof VideoEncoder === 'undefined') {
     showToast('MP4 export needs Chrome, Edge, or Safari 16.4+');
@@ -5837,7 +5851,7 @@ function drawRingFrame(ctx, w, h, timeMs, iconImages) {
   const cosA = Math.cos(a), sinA = Math.sin(a);
   const frontSize = stageH * R.size / 100;
   const blurStageScale = stageH / 1080; // blur slider is calibrated at 1080p
-  const baseAngle = ringExportStartAngle + R.speed * (timeMs / 1000);
+  const baseAngle = ringExportStartAngle + R.speed * (timeMs / 1000) * (R.reverse ? -1 : 1);
   const n = state.count;
 
   // Painter's order: back of the ring first so front icons overlap correctly.
@@ -6033,7 +6047,7 @@ function exportRingHTML() {
     inner += '<div class="orb" title="' + (icon.name || '') + '">' + icon.svg + '</div>';
   }
   const cfg = {
-    radius: R.radius, tilt: R.tilt, angle: R.angle, speed: R.speed,
+    radius: R.radius, tilt: R.tilt, angle: R.angle, speed: R.speed, reverse: !!R.reverse,
     size: R.size, depth: R.depth, blur: R.blur, fade: R.fade,
     hoverMode: R.hoverMode, hoverAmt: R.hoverAmt, hoverSpread: R.hoverSpread,
     ripAmt: R.ripAmt, ripSpeed: R.ripSpeed,
@@ -6064,7 +6078,7 @@ function exportRingHTML() {
     'function frame(t) {',
     '  var dt = Math.min(0.1, Math.max(0, (t - lastT) / 1000));',
     '  lastT = t;',
-    '  if (!reduced) baseAngle = (baseAngle + CFG.speed * dt) % 360;',
+    '  if (!reduced) baseAngle = (baseAngle + CFG.speed * dt * (CFG.reverse ? -1 : 1)) % 360;',
     '  ripples = ripples.filter(function (r) { return (t - r.start) / 1000 <= RIP_LIFE; });',
     '  var cw = stage.clientWidth, ch = stage.clientHeight;',
     '  var rx = (cw / 2) * CFG.radius / 100;',
@@ -6196,6 +6210,7 @@ async function exportPNG() {
 }
 
 async function exportGIF() {
+  if (ringVideoLocked()) { showToast('Ring speed is below 7 — speed it up to render video'); return; }
   if (!window.gifenc) {
     showToast('GIF encoder not loaded');
     return;
@@ -6490,6 +6505,19 @@ function applyBgUI() {
   document.getElementById('bgPosRow').style.display = state.bgMode === 'radial' ? '' : 'none';
 }
 
+// Ring videos render one revolution, so slow speeds mean very long files —
+// below RING_MIN_VIDEO_SPEED the video buttons lock and the hint explains why.
+function ringVideoLocked() {
+  return state.layout === 'ring' && state.ring.speed < RING_MIN_VIDEO_SPEED;
+}
+function updateRingExportLockUI() {
+  const locked = ringVideoLocked();
+  ['btn-export-webm', 'btn-export-mp4', 'btn-export-gif'].forEach(id => {
+    document.getElementById(id).disabled = locked;
+  });
+  document.getElementById('ringSpeedNote').style.display = locked ? '' : 'none';
+}
+
 function applyLayoutUI() {
   document.getElementById('app').dataset.layout = state.layout || 'line';
   // playSwitch lives outside .app, so the data-layout CSS can't reach it.
@@ -6502,6 +6530,9 @@ function applyLayoutUI() {
   });
   document.getElementById('btn-ringintro-on').classList.toggle('active', !!state.ring.introOn);
   document.getElementById('btn-ringintro-off').classList.toggle('active', !state.ring.introOn);
+  document.getElementById('btn-ringdir-fwd').classList.toggle('active', !state.ring.reverse);
+  document.getElementById('btn-ringdir-rev').classList.toggle('active', !!state.ring.reverse);
+  updateRingExportLockUI();
   RING_SLIDER_MAP.forEach(([id, key]) => {
     const r = document.getElementById('r-' + id);
     const v = document.getElementById('v-' + id);
@@ -6982,6 +7013,13 @@ function bindEvents() {
       persist();
     };
   });
+  ['fwd', 'rev'].forEach(dir => {
+    document.getElementById('btn-ringdir-' + dir).onclick = () => {
+      state.ring.reverse = dir === 'rev';
+      applyLayoutUI();
+      persist();
+    };
+  });
   // Intro toggle — turning it on rebuilds the ring so the intro replays.
   document.getElementById('btn-ringintro-on').onclick = () => {
     state.ring.introOn = true;
@@ -7001,6 +7039,7 @@ function bindEvents() {
     r.oninput = () => {
       state.ring[key] = +r.value;
       v.value = r.value;
+      if (key === 'speed') updateRingExportLockUI();
       persist();
     };
     const commitRing = () => {
@@ -7010,6 +7049,7 @@ function bindEvents() {
       state.ring[key] = nVal;
       r.value = nVal;
       v.value = nVal;
+      if (key === 'speed') updateRingExportLockUI();
       persist();
     };
     v.addEventListener('blur', commitRing);
