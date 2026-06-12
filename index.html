@@ -1462,6 +1462,23 @@
             <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringfade" min="0" max="90" step="1" value="45"></div>
             <input type="text" class="val" id="v-ringfade" value="45" data-min="0" data-max="90" data-step="1">
           </div>
+          <div class="ctrl-row">
+            <span class="name">Intro</span>
+            <div class="overall-buttons" id="ringIntroButtons">
+              <button class="overall-btn" id="btn-ringintro-on" type="button">ON</button>
+              <button class="overall-btn active" id="btn-ringintro-off" type="button">OFF</button>
+            </div>
+          </div>
+          <div class="ctrl">
+            <label>Intro Duration</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringintroms" min="200" max="4000" step="100" value="1200"></div>
+            <input type="text" class="val" id="v-ringintroms" value="1200" data-min="200" data-max="4000" data-step="100">
+          </div>
+          <div class="ctrl">
+            <label>Intro Stagger</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringintrostagger" min="0" max="200" step="5" value="40"></div>
+            <input type="text" class="val" id="v-ringintrostagger" value="40" data-min="0" data-max="200" data-step="5">
+          </div>
         </div>
       </div>
 
@@ -1748,6 +1765,14 @@
               <button id="bg-off">Off</button>
             </div>
           </div>
+          <div class="row" id="bgModeRow">
+            <label>Fill</label>
+            <div class="overall-buttons" id="bgModeButtons">
+              <button class="overall-btn active" id="btn-bgmode-solid" type="button">SOLID</button>
+              <button class="overall-btn" id="btn-bgmode-linear" type="button">LINEAR</button>
+              <button class="overall-btn" id="btn-bgmode-radial" type="button">RADIAL</button>
+            </div>
+          </div>
           <div class="row" id="bgColorRow">
             <label>Color</label>
             <label class="color-bubble">
@@ -1755,6 +1780,29 @@
               <input type="text" id="bg-hex" value="#FFFFFF" maxlength="7">
               <input type="color" id="bg-color" value="#ffffff">
             </label>
+          </div>
+          <div class="row" id="bgColorBRow">
+            <label>Color B</label>
+            <label class="color-bubble">
+              <span class="swatch" id="bg-swatch-b" style="background:#dfe3ff"></span>
+              <input type="text" id="bg-hex-b" value="#DFE3FF" maxlength="7">
+              <input type="color" id="bg-color-b" value="#dfe3ff">
+            </label>
+          </div>
+          <div class="ctrl" id="bgAngleRow">
+            <label>Gradient Angle</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-bgangle" min="0" max="360" step="1" value="135"></div>
+            <input type="text" class="val" id="v-bgangle" value="135" data-min="0" data-max="360" data-step="1">
+          </div>
+          <div class="ctrl" id="bgPosRow">
+            <label>Gradient Center</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-bgpos" min="0" max="100" step="1" value="50"></div>
+            <input type="text" class="val" id="v-bgpos" value="50" data-min="0" data-max="100" data-step="1">
+          </div>
+          <div class="ctrl" id="bgSpreadRow">
+            <label>Gradient Spread</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-bgspread" min="10" max="100" step="1" value="100"></div>
+            <input type="text" class="val" id="v-bgspread" value="100" data-min="10" data-max="100" data-step="1">
           </div>
           <p class="hint">When off, the background is transparent — exports will preserve alpha (SVG, WebM with VP9).</p>
         </div>
@@ -3804,6 +3852,9 @@ const RING_DEFAULTS = {
   size: 12, depth: 55, blur: 8, fade: 45,
   hoverMode: 'grow', hoverAmt: 35, hoverSpread: 0,
   ripAmt: 50, ripSpeed: 8,
+  // Intro: icons scale/fade in at their orbit positions, staggered around the
+  // ring, while the orbit is already turning. Prepended to exports when on.
+  introOn: false, introMs: 1200, introStagger: 40,
 };
 
 const state = {
@@ -3835,6 +3886,10 @@ const state = {
     a8cOut:   { duration: 900, stagger: 21, slideDistance: 0,  startScale: 55, easing: 'cubic-bezier(0.28, 0, 0, 1)', auto: { duration: false, stagger: false, slideDistance: false, startScale: false, easing: true }, reverseOrder: true },
   },
   bgOn: true, bgColor: '#ffffff',
+  // v2.1 gradient background. bgColor doubles as gradient color A.
+  // bgAngle: linear direction (CSS convention). bgPos: radial center X %.
+  // bgSpread: % position of the color-B stop.
+  bgMode: 'solid', bgColorB: '#dfe3ff', bgAngle: 135, bgPos: 50, bgSpread: 100,
   aspectRatio: '16:9',
   // First-load default = Large (3840×2160 for 16:9). populateResolutionDropdown
   // will keep this selected on boot; switching aspect re-snaps to that ratio's standard.
@@ -4117,6 +4172,7 @@ function persist() {
     count: state.count, spacing: state.spacing, scale: state.scale, a8cScale: state.a8cScale, stageZoom: state.stageZoom,
     duration: state.duration, stagger: state.stagger, slideDistance: state.slideDistance,
     startScale: state.startScale, easing: state.easing, bgOn: state.bgOn, bgColor: state.bgColor,
+    bgMode: state.bgMode, bgColorB: state.bgColorB, bgAngle: state.bgAngle, bgPos: state.bgPos, bgSpread: state.bgSpread,
     auto: state.auto,
     activeSegment: state.activeSegment, segments: state.segments,
     aspectRatio: state.aspectRatio,
@@ -4639,11 +4695,29 @@ function isOutSegment() {
 // drives scale, DoF blur, opacity, and stacking. Hover and click-ripple are
 // live-preview-only effects (not exported).
 let ringRAF = null, ringOrbs = [], ringHover = [], ringHoveredIdx = -1;
-let ringRipples = [], ringBaseAngle = 0, ringLastT = 0;
+let ringRipples = [], ringBaseAngle = 0, ringLastT = 0, ringIntroT0 = 0;
 const RING_RIPPLE_LIFE = 2.5; // seconds
+const RING_INTRO_EASE = 'cubic-bezier(0.28, 0, 0, 1)'; // house easing
 
 function stopRingLoop() {
   if (ringRAF) { cancelAnimationFrame(ringRAF); ringRAF = null; }
+}
+
+// Per-icon intro progress (0 → 1) at ring-local time tMs. Icons appear in
+// ring order, each delayed by introStagger.
+function ringIntroFactor(i, tMs) {
+  const R = state.ring;
+  if (!R.introOn) return 1;
+  const p = (tMs - i * R.introStagger) / R.introMs;
+  if (p >= 1) return 1;
+  if (p <= 0) return 0;
+  return easeFromString(RING_INTRO_EASE, p);
+}
+
+// Total intro length, prepended to ring exports when the intro is on.
+function getRingIntroMs() {
+  const R = state.ring;
+  return R.introOn ? R.introMs + R.introStagger * (state.count - 1) : 0;
 }
 
 function renderRingStage(iconRow) {
@@ -4672,6 +4746,7 @@ function renderRingStage(iconRow) {
     iconRow.appendChild(slot);
     ringOrbs.push(slot);
   }
+  ringIntroT0 = performance.now();
   if (!ringRAF) {
     ringLastT = performance.now();
     ringRAF = requestAnimationFrame(ringFrame);
@@ -4729,9 +4804,11 @@ function ringFrame(t) {
       rip += Math.exp(-(dx * dx) / 0.8) * (1 - age / RING_RIPPLE_LIFE);
     }
 
+    const intro = ringIntroFactor(i, t - ringIntroT0);
     const scale = (1 - (R.depth / 100) * (1 - d01))
       * (1 + hoverDir * (R.hoverAmt / 100) * ringHover[i])
-      * (1 + (R.ripAmt / 100) * rip);
+      * (1 + (R.ripAmt / 100) * rip)
+      * intro;
     const size = frontSize * scale;
     const blur = R.blur * (1 - d01) * blurScale;
 
@@ -4739,7 +4816,7 @@ function ringFrame(t) {
     el.style.width = el.style.height = size.toFixed(1) + 'px';
     el.style.transform = 'translate(' + (x - size / 2).toFixed(1) + 'px, ' + (y - size / 2).toFixed(1) + 'px)';
     el.style.filter = blur > 0.1 ? 'blur(' + blur.toFixed(2) + 'px)' : 'none';
-    el.style.opacity = (1 - (R.fade / 100) * (1 - d01)).toFixed(3);
+    el.style.opacity = ((1 - (R.fade / 100) * (1 - d01)) * intro).toFixed(3);
     el.style.zIndex = Math.round(d01 * 1000);
   }
   ringRAF = requestAnimationFrame(ringFrame);
@@ -4751,7 +4828,7 @@ function renderStage(skipAnimation = false) {
   const iconRow = document.getElementById('iconRow');
   if (state.bgOn) {
     stageInner.classList.remove('bg-off');
-    stageInner.style.setProperty('--bg-color', state.bgColor);
+    stageInner.style.setProperty('--bg-color', getBgCSS());
   } else {
     stageInner.classList.add('bg-off');
   }
@@ -5443,7 +5520,7 @@ let ringExportStartAngle = 0;
 function buildExportTimeline() {
   if (state.layout === 'ring') {
     ringExportStartAngle = ringBaseAngle;
-    const ms = getRingLoopMs();
+    const ms = getRingIntroMs() + getRingLoopMs();
     return { items: [{ seg: 'ring', startMs: 0, durMs: ms, endMs: ms }], totalMs: ms };
   }
   const selected = getSelectedSegmentsForExport();
@@ -5524,7 +5601,7 @@ function drawSegmentFrame(ctx, w, h, seg, localTMs, iconImages, a8cImages) {
   const isA8c = isA8cSeg(seg);
   const isOut = isOutSeg(seg);
 
-  if (state.bgOn) { ctx.fillStyle = state.bgColor; ctx.fillRect(0, 0, w, h); }
+  if (state.bgOn) fillBgCanvas(ctx, w, h);
   else ctx.clearRect(0, 0, w, h);
 
   const _c = getCanvas(), stageW = _c.w, stageH = _c.h;
@@ -5631,6 +5708,47 @@ function drawSequenceFrameSupersampled(ctx, w, h, timeline, globalTMs, iconImage
   drawSegmentFrameSupersampled(ctx, w, h, it.seg, localT, iconImages, a8cImages);
 }
 
+// ---- Gradient background (v2.1) ----
+// One source of truth for the background in all renderers: CSS string for the
+// live stage / HTML export, canvas fill for frame exports, SVG def for the
+// SVG export. bgColor is gradient color A; the spread slider positions the
+// color-B stop.
+function getBgCSS() {
+  if (state.bgMode === 'linear') {
+    return 'linear-gradient(' + state.bgAngle + 'deg, ' + state.bgColor + ' 0%, ' + state.bgColorB + ' ' + state.bgSpread + '%)';
+  }
+  if (state.bgMode === 'radial') {
+    return 'radial-gradient(circle at ' + state.bgPos + '% 50%, ' + state.bgColor + ' 0%, ' + state.bgColorB + ' ' + state.bgSpread + '%)';
+  }
+  return state.bgColor;
+}
+
+function fillBgCanvas(ctx, w, h) {
+  if (state.bgMode === 'linear') {
+    // CSS angle convention: 0deg = to top, clockwise. Gradient line length per
+    // the CSS spec so canvas output matches the live preview.
+    const rad = state.bgAngle * Math.PI / 180;
+    const dx = Math.sin(rad), dy = -Math.cos(rad);
+    const len = Math.abs(w * dx) + Math.abs(h * dy);
+    const cx = w / 2, cy = h / 2;
+    const g = ctx.createLinearGradient(cx - dx * len / 2, cy - dy * len / 2, cx + dx * len / 2, cy + dy * len / 2);
+    g.addColorStop(0, state.bgColor);
+    g.addColorStop(Math.max(0.001, state.bgSpread / 100), state.bgColorB);
+    ctx.fillStyle = g;
+  } else if (state.bgMode === 'radial') {
+    // CSS default sizing: circle to the farthest corner.
+    const cx = w * state.bgPos / 100, cy = h / 2;
+    const r = Math.hypot(Math.max(cx, w - cx), Math.max(cy, h - cy));
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    g.addColorStop(0, state.bgColor);
+    g.addColorStop(Math.max(0.001, state.bgSpread / 100), state.bgColorB);
+    ctx.fillStyle = g;
+  } else {
+    ctx.fillStyle = state.bgColor;
+  }
+  ctx.fillRect(0, 0, w, h);
+}
+
 // Pre-blurred icon variants for the ring's DoF, built once per icon per
 // quantized blur level and cached on the bitmap. Blurring at draw time with
 // ctx.filter would re-run the gaussian on every frame of the export — too slow
@@ -5662,7 +5780,7 @@ function getBlurredIconVariant(img, blurBmpPx) {
 // loop, but angle is a pure function of timeMs from the frozen export start
 // angle, and the interactive effects (hover, ripple) are omitted.
 function drawRingFrame(ctx, w, h, timeMs, iconImages) {
-  if (state.bgOn) { ctx.fillStyle = state.bgColor; ctx.fillRect(0, 0, w, h); }
+  if (state.bgOn) fillBgCanvas(ctx, w, h);
   else ctx.clearRect(0, 0, w, h);
   const _c = getCanvas(); const stageW = _c.w, stageH = _c.h;
   const s = Math.min(w / stageW, h / stageH);
@@ -5690,20 +5808,24 @@ function drawRingFrame(ctx, w, h, timeMs, iconImages) {
   for (const [i, d01, th] of order) {
     const img = iconImages[i];
     if (!img) continue;
+    const intro = ringIntroFactor(i, timeMs);
+    if (intro <= 0) continue;
     const ex = rx * Math.cos(th);
     const ey = ry * Math.sin(th);
     const x = cxStage + ex * cosA - ey * sinA;
     const y = cyStage + ex * sinA + ey * cosA;
-    const scale = 1 - (R.depth / 100) * (1 - d01);
-    const drawSize = frontSize * scale;                  // stage px
+    const depthScale = 1 - (R.depth / 100) * (1 - d01);
+    const drawSize = frontSize * depthScale * intro;     // stage px
     const blurOutPx = R.blur * (1 - d01) * blurStageScale * s; // output px
     const innerPx = img.width / (img.padScale || 1);
-    const blurBmpPx = blurOutPx * (innerPx / (drawSize * s));
+    // Map blur to bitmap px from the settled (non-intro) size so a fading-in
+    // icon doesn't request an absurdly large pre-blurred variant.
+    const blurBmpPx = blurOutPx * (innerPx / (frontSize * depthScale * s));
     const variant = getBlurredIconVariant(img, blurBmpPx);
     const padScale = variant.padScale || 1;
     const destSize = drawSize * padScale;
     ctx.save();
-    ctx.globalAlpha = Math.max(0, 1 - (R.fade / 100) * (1 - d01));
+    ctx.globalAlpha = Math.max(0, (1 - (R.fade / 100) * (1 - d01)) * intro);
     ctx.drawImage(variant,
       offsetX + (x - destSize / 2) * s, offsetY + (y - destSize / 2) * s,
       destSize * s, destSize * s);
@@ -5712,7 +5834,7 @@ function drawRingFrame(ctx, w, h, timeMs, iconImages) {
 }
 
 function drawFrame(ctx, w, h, timeMs, iconImages) {
-  if (state.bgOn) { ctx.fillStyle = state.bgColor; ctx.fillRect(0, 0, w, h); }
+  if (state.bgOn) fillBgCanvas(ctx, w, h);
   else ctx.clearRect(0, 0, w, h);
   const _c = getCanvas(); const stageW = _c.w, stageH = _c.h;
   const sx = w / stageW;
@@ -5796,7 +5918,22 @@ async function exportSVG() {
   const m = state.easing.match(/cubic-bezier\(([^)]+)\)/);
   const ks = m ? m[1].split(',').map(s => s.trim()).join(' ') : '0.42 0 0.58 1';
   let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">`;
-  if (state.bgOn) svg += `<rect width="${w}" height="${h}" fill="${state.bgColor}"/>`;
+  if (state.bgOn) {
+    if (state.bgMode === 'linear') {
+      // CSS 0deg = to top, clockwise; map to SVG x1/y1→x2/y2 across the box.
+      const rad = state.bgAngle * Math.PI / 180;
+      const dx = Math.sin(rad) / 2, dy = -Math.cos(rad) / 2;
+      svg += `<defs><linearGradient id="bgGrad" x1="${50 - dx * 100}%" y1="${50 - dy * 100}%" x2="${50 + dx * 100}%" y2="${50 + dy * 100}%">`
+        + `<stop offset="0%" stop-color="${state.bgColor}"/><stop offset="${state.bgSpread}%" stop-color="${state.bgColorB}"/>`
+        + `</linearGradient></defs><rect width="${w}" height="${h}" fill="url(#bgGrad)"/>`;
+    } else if (state.bgMode === 'radial') {
+      svg += `<defs><radialGradient id="bgGrad" cx="${state.bgPos}%" cy="50%" r="75%">`
+        + `<stop offset="0%" stop-color="${state.bgColor}"/><stop offset="${state.bgSpread}%" stop-color="${state.bgColorB}"/>`
+        + `</radialGradient></defs><rect width="${w}" height="${h}" fill="url(#bgGrad)"/>`;
+    } else {
+      svg += `<rect width="${w}" height="${h}" fill="${state.bgColor}"/>`;
+    }
+  }
   for (let i = 0; i < state.count; i++) {
     const id = state.assignments[i];
     if (!id) continue;
@@ -5847,7 +5984,7 @@ async function copyEmbed() {
   const startScale = state.startScale / 100;
   const ease = state.easing;
   const id = 'is-' + Math.random().toString(36).slice(2, 8);
-  const bg = state.bgOn ? `background:${state.bgColor};` : '';
+  const bg = state.bgOn ? `background:${getBgCSS()};` : '';
   let inner = '';
   for (let i = 0; i < state.count; i++) {
     const aid = state.assignments[i];
@@ -5960,6 +6097,7 @@ function savePreset() {
       count: state.count, spacing: state.spacing, scale: state.scale, a8cScale: state.a8cScale, stageZoom: state.stageZoom,
       duration: state.duration, stagger: state.stagger, slideDistance: state.slideDistance,
       startScale: state.startScale, easing: state.easing, bgOn: state.bgOn, bgColor: state.bgColor,
+    bgMode: state.bgMode, bgColorB: state.bgColorB, bgAngle: state.bgAngle, bgPos: state.bgPos, bgSpread: state.bgSpread,
       aspectRatio: state.aspectRatio,
       resolution: state.resolution, fps: state.fps, library: state.library, assignments: state.assignments,
     },
@@ -6161,7 +6299,28 @@ const RING_SLIDER_MAP = [
   ['ringblur', 'blur'], ['ringfade', 'fade'],
   ['ringhoveramt', 'hoverAmt'], ['ringhoverspread', 'hoverSpread'],
   ['ringripamt', 'ripAmt'], ['ringripspeed', 'ripSpeed'],
+  ['ringintroms', 'introMs'], ['ringintrostagger', 'introStagger'],
 ];
+
+// v2.1 — sync gradient background controls: active mode button, color-B
+// inputs, slider values, and which gradient rows are visible for the mode.
+function applyBgUI() {
+  ['solid', 'linear', 'radial'].forEach(m => {
+    document.getElementById('btn-bgmode-' + m).classList.toggle('active', state.bgMode === m);
+  });
+  document.getElementById('bg-color-b').value = state.bgColorB;
+  document.getElementById('bg-hex-b').value = state.bgColorB.toUpperCase();
+  document.getElementById('bg-swatch-b').style.background = state.bgColorB;
+  [['bgangle', 'bgAngle'], ['bgpos', 'bgPos'], ['bgspread', 'bgSpread']].forEach(([id, key]) => {
+    document.getElementById('r-' + id).value = state[key];
+    document.getElementById('v-' + id).value = state[key];
+  });
+  const isGrad = state.bgMode !== 'solid';
+  document.getElementById('bgColorBRow').style.display = isGrad ? '' : 'none';
+  document.getElementById('bgSpreadRow').style.display = isGrad ? '' : 'none';
+  document.getElementById('bgAngleRow').style.display = state.bgMode === 'linear' ? '' : 'none';
+  document.getElementById('bgPosRow').style.display = state.bgMode === 'radial' ? '' : 'none';
+}
 
 function applyLayoutUI() {
   document.getElementById('app').dataset.layout = state.layout || 'line';
@@ -6172,6 +6331,8 @@ function applyLayoutUI() {
   ['grow', 'shrink', 'none'].forEach(m => {
     document.getElementById('btn-hover-' + m).classList.toggle('active', state.ring.hoverMode === m);
   });
+  document.getElementById('btn-ringintro-on').classList.toggle('active', !!state.ring.introOn);
+  document.getElementById('btn-ringintro-off').classList.toggle('active', !state.ring.introOn);
   RING_SLIDER_MAP.forEach(([id, key]) => {
     const r = document.getElementById('r-' + id);
     const v = document.getElementById('v-' + id);
@@ -6200,6 +6361,7 @@ function bindUIFromState() {
   document.getElementById('bg-color').value = state.bgColor;
   document.getElementById('bg-hex').value = state.bgColor.toUpperCase();
   document.getElementById('bg-swatch').style.background = state.bgColor;
+  applyBgUI();
   document.getElementById('bg-on').classList.toggle('active', state.bgOn);
   document.getElementById('bg-off').classList.toggle('active', !state.bgOn);
   document.getElementById('s-resolution').value = state.resolution;
@@ -6632,6 +6794,18 @@ function bindEvents() {
       persist();
     };
   });
+  // Intro toggle — turning it on rebuilds the ring so the intro replays.
+  document.getElementById('btn-ringintro-on').onclick = () => {
+    state.ring.introOn = true;
+    applyLayoutUI();
+    renderStage(true);
+    persist();
+  };
+  document.getElementById('btn-ringintro-off').onclick = () => {
+    state.ring.introOn = false;
+    applyLayoutUI();
+    persist();
+  };
   RING_SLIDER_MAP.forEach(([id, key]) => {
     const r = document.getElementById('r-' + id);
     const v = document.getElementById('v-' + id);
@@ -6691,6 +6865,59 @@ function bindEvents() {
       e.target.value = state.bgColor.toUpperCase();
     }
   };
+
+  // v2.1 — gradient background controls.
+  ['solid', 'linear', 'radial'].forEach(mode => {
+    document.getElementById('btn-bgmode-' + mode).onclick = () => {
+      state.bgMode = mode;
+      applyBgUI();
+      renderStage();
+      persist();
+    };
+  });
+  document.getElementById('bg-color-b').oninput = (e) => {
+    state.bgColorB = e.target.value;
+    document.getElementById('bg-hex-b').value = e.target.value.toUpperCase();
+    document.getElementById('bg-swatch-b').style.background = e.target.value;
+    renderStage();
+    persist();
+  };
+  document.getElementById('bg-hex-b').onchange = (e) => {
+    let v = e.target.value.trim();
+    if (!v.startsWith('#')) v = '#' + v;
+    if (/^#[0-9a-fA-F]{6}$/.test(v)) {
+      state.bgColorB = v.toLowerCase();
+      document.getElementById('bg-color-b').value = v;
+      document.getElementById('bg-swatch-b').style.background = v;
+      e.target.value = v.toUpperCase();
+      renderStage();
+      persist();
+    } else {
+      e.target.value = state.bgColorB.toUpperCase();
+    }
+  };
+  [['bgangle', 'bgAngle'], ['bgpos', 'bgPos'], ['bgspread', 'bgSpread']].forEach(([id, key]) => {
+    const r = document.getElementById('r-' + id);
+    const v = document.getElementById('v-' + id);
+    r.oninput = () => {
+      state[key] = +r.value;
+      v.value = r.value;
+      renderStage();
+      persist();
+    };
+    const commitBg = () => {
+      let nVal = parseFloat(v.value);
+      if (isNaN(nVal)) { v.value = state[key]; return; }
+      nVal = Math.max(+r.min, Math.min(+r.max, nVal));
+      state[key] = nVal;
+      r.value = nVal;
+      v.value = nVal;
+      renderStage();
+      persist();
+    };
+    v.addEventListener('blur', commitBg);
+    v.addEventListener('keydown', e => { if (e.key === 'Enter') { commitBg(); v.blur(); } });
+  });
 
   document.getElementById('s-resolution').onchange = (e) => { state.resolution = e.target.value; persist(); };
   document.getElementById('s-fps').onchange = (e) => { state.fps = +e.target.value; persist(); };
