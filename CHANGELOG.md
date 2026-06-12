@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.1.0] — 2026-06-12
+
+The **Ring layout** release. A second stage layout — a continuous 3D orbit with depth-of-field — alongside the classic line, with its own interactions, exports, and defaults.
+
+### Added
+
+- **Ring layout mode.** LINE/RING toggle in the new Layout panel section. Icons orbit a tilted ellipse; depth along the ring drives scale, blur (DoF), opacity, and stacking. Controls: Radius, Tilt, Angle, Speed, Direction (forward/reverse), Icon Size, Depth Scale, Blur, Fade Back. Ring mode bypasses the segment timeline.
+- **Ring interactions** (live preview + Interactive HTML export; not in video):
+  - *Hover* grow/shrink with adjustable amount and **spread** to ring neighbors (gaussian falloff).
+  - *Click ripple* — a wave travelling both ways around the ring (strength + speed).
+  - *Drag-to-spin* — grab and fling the ring; Grip / Resistance / Weight controls, fling capped at 720°/s, decays back into auto-rotation. Touch works via pointer events.
+- **Ring intro** (optional): icons scale/fade in at their orbit positions, staggered around the ring; prepended to exports.
+- **Ring exports.** WebM/MP4/GIF render exactly one revolution (360 ÷ speed) for a seamless loop; DoF via pre-blurred bitmap variants cached per icon. PNG renders the settled ring. **Export Interactive HTML** produces a self-contained file with the engine + interactions inlined (replaces Copy embed code in ring mode). Video exports lock below speed 7 with an explanatory hint. Animated SVG is not available in ring mode yet.
+- **Gradient backgrounds** (both layouts): solid / linear / radial with Color B, angle (linear), center (radial), and spread — applied consistently across the live stage, canvas exports, SVG export, and HTML embeds.
+- **Layout link toggle** (chain icon between LINE/RING): when on, the settings both layouts share (icon count, zoom, background) stay mirrored; when off, each layout keeps its own copy and they swap on layout switch. Re-linking transfers the active layout's values to the other.
+- **Per-layout Load defaults**: line keeps its historical preset; ring loads its designed preset (25 icons, zoom 48, radius 65, speed 3, depth 16, blur 16, fade 46, intro off, interaction off, solid white).
+
+### Fixed
+
+- Export DoF blur quantization forced a heavy minimum blur, leaving only the focal icon sharp in PNG/video frames. Now quantizes at 1/128 of the icon with a true zero level — exports match the preview's gradual falloff.
+
+### Changed
+
+- `APP_VERSION` bumped to `v2.1` (export filename suffix).
+
 ## [2.0.1] — 2026-05-19
 
 A polish pass on top of v2.0.0 — defaults that match the intended choreography, timeline-bar animation that tracks playback time, and a couple of boot-order bug fixes.

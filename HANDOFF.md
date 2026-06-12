@@ -1,13 +1,13 @@
 # Product Logos Slide Tool — Project Handoff
 
-This document captures the state of the **Product Logos Slide Tool** (internal nickname: *Icon Stage*) as of **v2.0.0** so a fresh Claude session can pick up from here without re-deriving context. Read it top to bottom before making changes.
+This document captures the state of the **Product Logos Slide Tool** (internal nickname: *Icon Stage*) as of **v2.1.0** so a fresh Claude session can pick up from here without re-deriving context. Read it top to bottom before making changes.
 
 ## Quick links
 
 - **Live site:** https://nick-a8c.github.io/product-logos-slide-tool/
 - **Source:** https://github.com/nick-a8c/product-logos-slide-tool
 - **Owner:** Nebojsa Jurcic (`nick-a8c`)
-- **Current version:** v2.0.0
+- **Current version:** v2.1.0 (Ring layout release)
 
 ## What this project is
 
@@ -212,6 +212,19 @@ Avoid hardcoded fallbacks like `var(--input-bg, #f6f6f6)` — those don't exist 
 
 For elements that need to look the same in both themes (e.g. the PLAY ALL button's distinct neutral pill), define an explicit `:root[data-theme="dark"]` override rather than relying on `--text` (which flips).
 
+### Ring layout (v2.1.0)
+
+A second stage layout alongside the classic line: a continuous 3D orbit with depth-of-field. Key facts:
+
+- `state.layout` = `'line' | 'ring'`; ring params live in `state.ring` (defaults in `RING_DEFAULTS`, stage-level reset values in `RING_STAGE_DEFAULTS`). Ring mode hides the segment timeline, play buttons, segment panels, A8C section, and spacing/scale sliders via `.app[data-layout="ring"]` CSS.
+- **Live engine**: `renderRingStage()` builds absolutely-positioned `.icon-slot`s; `ringFrame()` (rAF) places them on a tilted ellipse in canvas-px space. Depth (0=back, 1=front) drives scale, CSS blur, opacity, z-index.
+- **Interactions** (preview + Interactive HTML export only, never video): hover grow/shrink with gaussian *spread* to neighbors; click ripple travelling both ways around the ring; drag-to-spin (grab/fling with Grip/Resistance/Weight physics, 720 deg/s cap, decays back into auto-rotation, 5px click-vs-drag threshold, pointer events so touch works).
+- **Intro** (optional): per-icon staggered scale/fade-in at orbit positions, house easing; prepended to exports (`getRingIntroMs()`).
+- **Exports**: `buildExportTimeline()` returns a single pseudo-segment `{seg:'ring'}` covering one revolution (`360/speed` s; +intro). `drawSegmentFrame()` branches to `drawRingFrame()` — a pure function of timeMs from `ringExportStartAngle` (frozen at export start). DoF uses pre-blurred bitmap variants cached per icon per quantized level (`getBlurredIconVariant`, 1/128 steps with a true zero level — coarser quantization was a bug that blurred everything except the focal icon). Video exports lock below speed 7 (`RING_MIN_VIDEO_SPEED`, `ringVideoLocked()`); PNG + Interactive HTML stay available. `exportRingHTML()` generates a self-contained interactive file (engine + config inlined, no external refs, prefers-reduced-motion parks the orbit). Animated SVG is guarded off in ring mode.
+- **Gradient backgrounds** (both layouts): `state.bgMode` solid/linear/radial + `bgColorB/bgAngle/bgPos/bgSpread`. One source of truth: `getBgCSS()` (live stage + HTML embeds) and `fillBgCanvas()` (all canvas exporters, CSS-spec-matched), plus gradient defs in the SVG exporter.
+- **Layout link** (chain button between LINE/RING): `state.layoutLink` (default on) keeps the shared settings (`LAYOUT_SHARED_KEYS` = count, zoom, background) mirrored. Off: each layout keeps its own copy in `state.layoutShared` and they swap on layout switch. Re-linking re-seeds both stashes from the active layout.
+- **Per-layout Load defaults**: line keeps the historical preset (count 15); ring loads its designed preset (25 icons, zoom 48, radius 65, speed 3, depth 16, blur 16, fade 46, intro off, interaction off, solid white). Never mirrored by the link.
+
 ## Migrations in `restore()`
 
 Existing `localStorage` saves get migrated:
@@ -223,9 +236,11 @@ Existing `localStorage` saves get migrated:
 - Missing `auto` key → all auto flags set to `false` (preserve existing manual values)
 - **v2.0.0**: missing `segments` → built from defaults; legacy top-level `duration`/`stagger`/etc. migrated into `segments.logosIn`. Missing `segmentPauses` → defaulted to `{ logosInToOut: 0.5, logosOutToA8cIn: 0.5, a8cInToOut: 0.5 }`. `reverseOrder` missing on any segment → false. `a8cScale > 80` clamped to 80 (the slider tightened from 40–200 to 10–80 in v2.0.0).
 
-## What's done (v2.0.0)
+## What's done
 
 All export formats work offline. Four-segment timeline (Logos Intro / Logos Outro / A8C Intro / A8C Outro) with per-segment animation panels. Auto mode for all 5 animation params per segment + Overall Control buttons (active segment scope). AUTOMATTIC wordmark split into 10 letter elements rendered with natural source-SVG spacing. Inter-segment pauses (0–10s) honored by both live PLAY ALL and export sequencer. Export range selector (1/2/3/4/ALL) feeds sequencer that swaps content/params/direction per segment. PLAY SEGMENT / LOOP SEGMENT / PLAY ALL. Order of movement toggle on outros. A8C scale slider (10–80) in its own section. 4× supersampled export rendering with halving downsample + 6× SVG bitmap raster + padding for AA fringe. Removed Quality dropdown (always top-tier). Six aspect ratios with 18-icon cap on vertical/square. ~300 KB single-file HTML. Live on GitHub Pages.
+
+**v2.1.0 adds:** Ring layout mode with full export support (one-revolution seamless loops), three live interactions (hover+spread / ripple / drag-to-spin), optional staggered intro, gradient backgrounds across all renderers, layout link toggle with per-layout setting stashes, per-layout Load defaults, Export Interactive HTML, and the export-DoF quantization fix.
 
 ## What's pending or open
 
@@ -251,6 +266,18 @@ All export formats work offline. Four-segment timeline (Logos Intro / Logos Outr
 - **Trust user feedback over your own assumptions** about how things look — they're the designer
 - **Save a fallback before risky changes.** When the user okays a destructive or hard-to-revert change, copy the current working file as `product-logos-slide-tool-vX.Y.Z-fallback.html` first.
 - For GitHub workflow questions: this user prefers UI clicks over command line. Walk through screen-by-screen when needed.
+
+## Moving this project to a personal account
+
+The owner plans to continue this project from a personal Claude Max account (and possibly a personal GitHub account). For whoever picks this up there:
+
+1. **This file is the context.** The new Claude account has no memory of prior sessions — read this handoff top to bottom; it replaces all accumulated session memory.
+2. **GitHub transfer options** (owner prefers UI clicks):
+   - *Transfer ownership*: repo Settings -> General -> Danger Zone -> "Transfer ownership" -> enter the personal account. GitHub auto-redirects the old URL; issues/releases/tags move along.
+   - *Or fork/import* into the personal account if the `nick-a8c` copy should stay.
+3. **Re-enable GitHub Pages** after transfer: Settings -> Pages -> Deploy from branch -> `main` / root. The live URL changes to `https://<personal-account>.github.io/product-logos-slide-tool/`. Update the Quick links above afterwards.
+4. **Local checkout**: update the remote — `git remote set-url origin https://github.com/<personal-account>/product-logos-slide-tool.git`.
+5. **Releases**: `v2.0` (pre-ring stable) and `v2.1.0` exist as tags/releases — they travel with an ownership transfer, but NOT with a fork (re-create from tags if forking).
 
 ## Useful one-liners
 
