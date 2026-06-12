@@ -1239,6 +1239,14 @@
      CSS-keyframe Copy-embed-code path). */
   #btn-export-html { display: none; }
   .app[data-layout="ring"] #btn-export-html { display: block; }
+  /* Link toggle between LINE/RING: compact icon button; dimmed when unlinked. */
+  .layout-link-btn {
+    padding: 5px 7px;
+    display: inline-flex;
+    align-items: center;
+  }
+  .layout-link-btn svg { display: block; }
+  .layout-link-btn:not(.active) { opacity: 0.45; }
   /* Ring slots are positioned by the rAF loop in stage (canvas-px) space. */
   .app[data-layout="ring"] .icon-row {
     inset: 0;
@@ -1351,6 +1359,12 @@
             <span class="name">Stage Layout</span>
             <div class="overall-buttons" id="layoutButtons">
               <button class="overall-btn active" id="btn-layout-line" type="button">LINE</button>
+              <button class="overall-btn layout-link-btn active" id="btn-layout-link" type="button" title="Mirror shared settings (icons, zoom, background) between Line and Ring">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
               <button class="overall-btn" id="btn-layout-ring" type="button">RING</button>
             </div>
           </div>
@@ -3854,14 +3868,18 @@ const STORAGE_KEY = 'icon-stage-v2';
 // front icon's height as % of canvas height; blur is px at 1080p (scaled with
 // resolution); depth/fade are % falloff toward the back of the ring.
 const RING_DEFAULTS = {
-  radius: 70, tilt: 32, angle: -18, speed: 10,
-  size: 12, depth: 55, blur: 8, fade: 45,
-  hoverMode: 'grow', hoverAmt: 35, hoverSpread: 0,
-  ripAmt: 50, ripSpeed: 8,
+  radius: 65, tilt: 32, angle: -18, speed: 3,
+  size: 12, depth: 16, blur: 16, fade: 46,
+  // Interaction off by default: no hover effect, ripple strength zero.
+  hoverMode: 'none', hoverAmt: 35, hoverSpread: 0,
+  ripAmt: 0, ripSpeed: 8,
   // Intro: icons scale/fade in at their orbit positions, staggered around the
   // ring, while the orbit is already turning. Prepended to exports when on.
   introOn: false, introMs: 1200, introStagger: 40,
 };
+// Ring "Load defaults" also resets these stage-level values (the line preset
+// leaves them untouched, matching its historical behavior).
+const RING_STAGE_DEFAULTS = { count: 25, stageZoom: 48, bgOn: true, bgMode: 'solid', bgColor: '#ffffff' };
 
 const state = {
   count: 15, spacing: 18, scale: 75, a8cScale: 40, stageZoom: 50,
@@ -3917,6 +3935,11 @@ const state = {
   // (continuous 3D orbit; bypasses the segment timeline).
   layout: 'line',
   ring: Object.assign({}, RING_DEFAULTS),
+  // Link toggle between LINE/RING: when true, the settings both layouts share
+  // (icon count, zoom, background) stay mirrored. When false, each layout
+  // keeps its own copy in layoutShared and they swap on layout switch.
+  layoutLink: true,
+  layoutShared: { line: null, ring: null },
 };
 
 // Anchor table: tuned values for canonical icon counts. Auto values for any
@@ -4187,6 +4210,7 @@ function persist() {
     library: state.library, assignments: state.assignments,
     theme: state.theme, panelState: state.panelState, panelX: state.panelX, panelY: state.panelY,
     layout: state.layout, ring: state.ring,
+    layoutLink: state.layoutLink, layoutShared: state.layoutShared,
   };
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave)); } catch (e) {}
 }
@@ -4271,6 +4295,10 @@ function restore() {
     // saved ring keys forward-compatible by merging over the defaults.
     if (state.layout !== 'ring') state.layout = 'line';
     state.ring = Object.assign({}, RING_DEFAULTS, data.ring || {});
+    if (typeof state.layoutLink !== 'boolean') state.layoutLink = true;
+    if (!state.layoutShared || typeof state.layoutShared !== 'object') {
+      state.layoutShared = { line: null, ring: null };
+    }
     if (typeof data.duration === 'number') {
       // Old format: copy top-level animation params into logosIn.
       const li = state.segments.logosIn;
@@ -4568,11 +4596,20 @@ function loadDefaults() {
   // Use stable IDs ('01'..'25') from DEFAULT_ICONS so DEFAULT_LAYOUTS can
   // reference them by ID. User-uploaded icons still get random IDs from uid().
   state.library = DEFAULT_ICONS.map(d => ({ id: d.id, name: d.name, svg: d.svg }));
-  // Default count is 15 — matches the curated 15-icon layout.
-  state.count = 15;
-  // Assign slots from the layout table for the default count.
+  // Layout-specific defaults: this button is intentionally NOT mirrored by
+  // the layout link — each layout loads its own designed preset.
+  if (state.layout === 'ring') {
+    Object.assign(state, RING_STAGE_DEFAULTS);
+    state.ring = Object.assign({}, RING_DEFAULTS);
+  } else {
+    // Default count is 15 — matches the curated 15-icon layout.
+    state.count = 15;
+  }
+  // Assign slots from the layout table for the active count.
   state.assignments = (DEFAULT_LAYOUTS[state.count] || []).slice();
+  recomputeAuto();
   renderLibrary();
+  bindUIFromState();
   renderStage();
   persist();
 }
@@ -6420,6 +6457,19 @@ const RING_SLIDER_MAP = [
   ['ringintroms', 'introMs'], ['ringintrostagger', 'introStagger'],
 ];
 
+// v2.1 — the settings both layouts have in common. Everything else (ring
+// geometry, line segments) lives in layout-specific state already.
+const LAYOUT_SHARED_KEYS = ['count', 'stageZoom', 'bgOn', 'bgColor', 'bgMode', 'bgColorB', 'bgAngle', 'bgPos', 'bgSpread'];
+function snapshotLayoutShared() {
+  const o = {};
+  LAYOUT_SHARED_KEYS.forEach(k => { o[k] = state[k]; });
+  return o;
+}
+function applyLayoutShared(snap) {
+  if (!snap) return;
+  LAYOUT_SHARED_KEYS.forEach(k => { if (k in snap) state[k] = snap[k]; });
+}
+
 // v2.1 — sync gradient background controls: active mode button, color-B
 // inputs, slider values, and which gradient rows are visible for the mode.
 function applyBgUI() {
@@ -6446,6 +6496,7 @@ function applyLayoutUI() {
   document.getElementById('playSwitch').style.display = state.layout === 'ring' ? 'none' : '';
   document.getElementById('btn-layout-line').classList.toggle('active', state.layout !== 'ring');
   document.getElementById('btn-layout-ring').classList.toggle('active', state.layout === 'ring');
+  document.getElementById('btn-layout-link').classList.toggle('active', !!state.layoutLink);
   ['grow', 'shrink', 'none'].forEach(m => {
     document.getElementById('btn-hover-' + m).classList.toggle('active', state.ring.hoverMode === m);
   });
@@ -6898,13 +6949,32 @@ function bindEvents() {
   // state.ring; the rAF loop reads it live, so no renderStage needed on input.
   const setLayout = (mode) => {
     if (state.layout === mode) return;
+    // Unlinked: each layout keeps its own copy of the shared settings.
+    // Stash the outgoing layout's values, restore the incoming one's.
+    if (!state.layoutLink) {
+      state.layoutShared[state.layout] = snapshotLayoutShared();
+      applyLayoutShared(state.layoutShared[mode]);
+    }
     state.layout = mode;
-    applyLayoutUI();
+    recomputeAuto();
+    ensureAssignments();
+    autoFillNewSlots();
+    bindUIFromState();
     renderStage(true);
     persist();
   };
   document.getElementById('btn-layout-line').onclick = () => setLayout('line');
   document.getElementById('btn-layout-ring').onclick = () => setLayout('ring');
+  // Link toggle. Turning it either way re-seeds both stashes from the current
+  // screen, so the active layout's settings win ("transfer to the other side"
+  // when linking, and a common starting point when unlinking).
+  document.getElementById('btn-layout-link').onclick = () => {
+    state.layoutLink = !state.layoutLink;
+    const snap = snapshotLayoutShared();
+    state.layoutShared = { line: snap, ring: Object.assign({}, snap) };
+    applyLayoutUI();
+    persist();
+  };
   ['grow', 'shrink', 'none'].forEach(mode => {
     document.getElementById('btn-hover-' + mode).onclick = () => {
       state.ring.hoverMode = mode;
