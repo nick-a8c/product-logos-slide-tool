@@ -1222,6 +1222,49 @@
     border-color: rgba(255,255,255,0.1);
   }
 
+  /* ---- Ring layout (v2.1) ---- */
+  /* Ring-only panel sections hide in line mode; line-only machinery (timeline,
+     segment panels, A8C, auto/custom control, spacing/scale) hides in ring mode. */
+  .section[data-ring-only] { display: none; }
+  .app[data-layout="ring"] .section[data-ring-only] { display: block; }
+  .app[data-layout="ring"] .section[data-section="control"],
+  .app[data-layout="ring"] .section[data-section="a8c"],
+  .app[data-layout="ring"] .section[data-segment],
+  .app[data-layout="ring"] .ctrl[data-auto-key="spacing"],
+  .app[data-layout="ring"] .ctrl[data-auto-key="scale"],
+  .app[data-layout="ring"] .row:has(#exportRange),
+  .app[data-layout="ring"] #btn-copy-embed,
+  .app[data-layout="ring"] .timeline { display: none; }
+  /* Interactive HTML export is a ring-mode feature (the line embed is the
+     CSS-keyframe Copy-embed-code path). */
+  #btn-export-html { display: none; }
+  .app[data-layout="ring"] #btn-export-html { display: block; }
+  /* Link toggle between LINE/RING: compact icon button; dimmed when unlinked. */
+  .layout-link-btn {
+    padding: 5px 7px;
+    display: inline-flex;
+    align-items: center;
+  }
+  .layout-link-btn svg { display: block; }
+  .layout-link-btn:not(.active) { opacity: 0.45; }
+  /* Drag-to-spin: stop touch panning from eating the gesture, hint grabbability. */
+  .app[data-layout="ring"] .stage-inner { touch-action: none; cursor: grab; }
+  .app[data-layout="ring"] .stage-inner:active { cursor: grabbing; }
+  /* Ring slots are positioned by the rAF loop in stage (canvas-px) space. */
+  .app[data-layout="ring"] .icon-row {
+    inset: 0;
+    top: 0; left: 0;
+    transform: none;
+    display: block;
+  }
+  .app[data-layout="ring"] .icon-slot {
+    position: absolute;
+    left: 0; top: 0;
+    margin: 0;
+    cursor: pointer;
+    will-change: transform, filter, opacity;
+  }
+
 </style>
 </head>
 <body>
@@ -1309,6 +1352,28 @@
 
     <div class="panel-content">
 
+      <div class="section open" data-section="layout">
+        <div class="section-header" data-toggle>
+          <h2>Layout</h2>
+          <span class="chev">›</span>
+        </div>
+        <div class="section-body">
+          <div class="ctrl-row">
+            <span class="name">Stage Layout</span>
+            <div class="overall-buttons" id="layoutButtons">
+              <button class="overall-btn active" id="btn-layout-line" type="button">LINE</button>
+              <button class="overall-btn layout-link-btn active" id="btn-layout-link" type="button" title="Mirror shared settings (icons, zoom, background) between Line and Ring">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+              <button class="overall-btn" id="btn-layout-ring" type="button">RING</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="section open" data-section="control">
         <div class="section-header" data-toggle>
           <h2>Control</h2>
@@ -1366,6 +1431,141 @@
               <input type="range" id="r-stagezoom" min="20" max="100" step="1" value="50">
             </div>
             <input type="text" class="val" id="v-stagezoom" value="50" data-min="20" data-max="100" data-step="1">
+          </div>
+        </div>
+      </div>
+
+      <!-- Ring layout (v2.1) — visible only when Stage Layout = RING. The ring is a
+           continuous 3D orbit: these control the ellipse geometry and the
+           depth-of-field falloff toward the back of the ring. -->
+      <div class="section open" data-section="ring" data-ring-only>
+        <div class="section-header" data-toggle>
+          <h2>Ring</h2>
+          <span class="chev">›</span>
+        </div>
+        <div class="section-body">
+          <div class="ctrl">
+            <label>Radius</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringradius" min="20" max="95" step="1" value="70"></div>
+            <input type="text" class="val" id="v-ringradius" value="70" data-min="20" data-max="95" data-step="1">
+          </div>
+          <div class="ctrl">
+            <label>Tilt</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringtilt" min="5" max="100" step="1" value="32"></div>
+            <input type="text" class="val" id="v-ringtilt" value="32" data-min="5" data-max="100" data-step="1">
+          </div>
+          <div class="ctrl">
+            <label>Angle</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringangle" min="-90" max="90" step="1" value="-18"></div>
+            <input type="text" class="val" id="v-ringangle" value="-18" data-min="-90" data-max="90" data-step="1">
+          </div>
+          <div class="ctrl">
+            <label>Speed</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringspeed" min="0" max="60" step="1" value="3"></div>
+            <input type="text" class="val" id="v-ringspeed" value="3" data-min="0" data-max="60" data-step="1">
+          </div>
+          <div class="ctrl-row">
+            <span class="name">Direction</span>
+            <div class="overall-buttons" id="ringDirButtons">
+              <button class="overall-btn active" id="btn-ringdir-fwd" type="button">FORWARD</button>
+              <button class="overall-btn" id="btn-ringdir-rev" type="button">REVERSE</button>
+            </div>
+          </div>
+          <div class="ctrl">
+            <label>Icon Size</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringsize" min="4" max="30" step="1" value="12"></div>
+            <input type="text" class="val" id="v-ringsize" value="12" data-min="4" data-max="30" data-step="1">
+          </div>
+          <div class="ctrl">
+            <label>Depth Scale</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringdepth" min="0" max="90" step="1" value="55"></div>
+            <input type="text" class="val" id="v-ringdepth" value="55" data-min="0" data-max="90" data-step="1">
+          </div>
+          <div class="ctrl">
+            <label>Blur (DoF)</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringblur" min="0" max="20" step="1" value="8"></div>
+            <input type="text" class="val" id="v-ringblur" value="8" data-min="0" data-max="20" data-step="1">
+          </div>
+          <div class="ctrl">
+            <label>Fade Back</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringfade" min="0" max="90" step="1" value="45"></div>
+            <input type="text" class="val" id="v-ringfade" value="45" data-min="0" data-max="90" data-step="1">
+          </div>
+          <div class="ctrl-row">
+            <span class="name">Intro</span>
+            <div class="overall-buttons" id="ringIntroButtons">
+              <button class="overall-btn" id="btn-ringintro-on" type="button">ON</button>
+              <button class="overall-btn active" id="btn-ringintro-off" type="button">OFF</button>
+            </div>
+          </div>
+          <div class="ctrl">
+            <label>Intro Duration</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringintroms" min="200" max="4000" step="100" value="1200"></div>
+            <input type="text" class="val" id="v-ringintroms" value="1200" data-min="200" data-max="4000" data-step="100">
+          </div>
+          <div class="ctrl">
+            <label>Intro Stagger</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringintrostagger" min="0" max="200" step="5" value="40"></div>
+            <input type="text" class="val" id="v-ringintrostagger" value="40" data-min="0" data-max="200" data-step="5">
+          </div>
+        </div>
+      </div>
+
+      <div class="section open" data-section="ring-interaction" data-ring-only>
+        <div class="section-header" data-toggle>
+          <h2>Interaction</h2>
+          <span class="chev">›</span>
+        </div>
+        <div class="section-body">
+          <div class="ctrl-row">
+            <span class="name">Drag Spin</span>
+            <div class="overall-buttons" id="ringDragButtons">
+              <button class="overall-btn active" id="btn-ringdrag-on" type="button">ON</button>
+              <button class="overall-btn" id="btn-ringdrag-off" type="button">OFF</button>
+            </div>
+          </div>
+          <div class="ctrl">
+            <label>Grip</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringgrip" min="10" max="180" step="1" value="60"></div>
+            <input type="text" class="val" id="v-ringgrip" value="60" data-min="10" data-max="180" data-step="1">
+          </div>
+          <div class="ctrl">
+            <label>Resistance</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringresist" min="1" max="20" step="0.5" value="5"></div>
+            <input type="text" class="val" id="v-ringresist" value="5" data-min="1" data-max="20" data-step="0.5">
+          </div>
+          <div class="ctrl">
+            <label>Weight</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringweight" min="0" max="100" step="1" value="30"></div>
+            <input type="text" class="val" id="v-ringweight" value="30" data-min="0" data-max="100" data-step="1">
+          </div>
+          <div class="ctrl-row">
+            <span class="name">Hover</span>
+            <div class="overall-buttons" id="hoverButtons">
+              <button class="overall-btn active" id="btn-hover-grow" type="button">GROW</button>
+              <button class="overall-btn" id="btn-hover-shrink" type="button">SHRINK</button>
+              <button class="overall-btn" id="btn-hover-none" type="button">OFF</button>
+            </div>
+          </div>
+          <div class="ctrl">
+            <label>Hover Amount</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringhoveramt" min="0" max="100" step="1" value="35"></div>
+            <input type="text" class="val" id="v-ringhoveramt" value="35" data-min="0" data-max="100" data-step="1">
+          </div>
+          <div class="ctrl">
+            <label>Hover Spread</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringhoverspread" min="0" max="8" step="0.5" value="0"></div>
+            <input type="text" class="val" id="v-ringhoverspread" value="0" data-min="0" data-max="8" data-step="0.5">
+          </div>
+          <div class="ctrl">
+            <label>Ripple Strength</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringripamt" min="0" max="100" step="1" value="50"></div>
+            <input type="text" class="val" id="v-ringripamt" value="50" data-min="0" data-max="100" data-step="1">
+          </div>
+          <div class="ctrl">
+            <label>Ripple Speed</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringripspeed" min="1" max="20" step="0.5" value="8"></div>
+            <input type="text" class="val" id="v-ringripspeed" value="8" data-min="1" data-max="20" data-step="0.5">
           </div>
         </div>
       </div>
@@ -1616,6 +1816,14 @@
               <button id="bg-off">Off</button>
             </div>
           </div>
+          <div class="row" id="bgModeRow">
+            <label>Fill</label>
+            <div class="overall-buttons" id="bgModeButtons">
+              <button class="overall-btn active" id="btn-bgmode-solid" type="button">SOLID</button>
+              <button class="overall-btn" id="btn-bgmode-linear" type="button">LINEAR</button>
+              <button class="overall-btn" id="btn-bgmode-radial" type="button">RADIAL</button>
+            </div>
+          </div>
           <div class="row" id="bgColorRow">
             <label>Color</label>
             <label class="color-bubble">
@@ -1623,6 +1831,29 @@
               <input type="text" id="bg-hex" value="#FFFFFF" maxlength="7">
               <input type="color" id="bg-color" value="#ffffff">
             </label>
+          </div>
+          <div class="row" id="bgColorBRow">
+            <label>Color B</label>
+            <label class="color-bubble">
+              <span class="swatch" id="bg-swatch-b" style="background:#dfe3ff"></span>
+              <input type="text" id="bg-hex-b" value="#DFE3FF" maxlength="7">
+              <input type="color" id="bg-color-b" value="#dfe3ff">
+            </label>
+          </div>
+          <div class="ctrl" id="bgAngleRow">
+            <label>Gradient Angle</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-bgangle" min="0" max="360" step="1" value="135"></div>
+            <input type="text" class="val" id="v-bgangle" value="135" data-min="0" data-max="360" data-step="1">
+          </div>
+          <div class="ctrl" id="bgPosRow">
+            <label>Gradient Center</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-bgpos" min="0" max="100" step="1" value="50"></div>
+            <input type="text" class="val" id="v-bgpos" value="50" data-min="0" data-max="100" data-step="1">
+          </div>
+          <div class="ctrl" id="bgSpreadRow">
+            <label>Gradient Spread</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-bgspread" min="10" max="100" step="1" value="100"></div>
+            <input type="text" class="val" id="v-bgspread" value="100" data-min="10" data-max="100" data-step="1">
           </div>
           <p class="hint">When off, the background is transparent — exports will preserve alpha (SVG, WebM with VP9).</p>
         </div>
@@ -1681,6 +1912,8 @@
             <button class="btn primary full" id="btn-export-svg">↓ Export Animated SVG</button>
             <button class="btn primary full" id="btn-export-png">↓ Export PNG (Final Frame)</button>
             <button class="btn primary full" id="btn-copy-embed">⧉ Copy embed code</button>
+            <button class="btn primary full" id="btn-export-html">↓ Export Interactive HTML</button>
+            <p class="hint" id="ringSpeedNote" style="display:none">Video length is one full revolution (360 ÷ speed). Speed up your loop to at least 7 to render video.</p>
           </div>
           <p class="hint">WebM keeps transparency when background is off. MP4 is H.264 (works everywhere — Slack, P2, Twitter) but doesn't preserve transparency. Animated SVG is self-contained — paste it into HTML, P2, or anywhere SVG renders.</p>
         </div>
@@ -3664,6 +3897,31 @@ If you want to offset all timestamps of a track such that the first one is zero,
 <script>
 const STORAGE_KEY = 'icon-stage-v2';
 
+// v2.1 ring layout defaults. radius is % of half the canvas width; size is the
+// front icon's height as % of canvas height; blur is px at 1080p (scaled with
+// resolution); depth/fade are % falloff toward the back of the ring.
+// Video exports cover one revolution (360/speed seconds), so slow rings make
+// very long renders. Below this speed the video buttons lock.
+const RING_MIN_VIDEO_SPEED = 7;
+
+const RING_DEFAULTS = {
+  radius: 65, tilt: 32, angle: -18, speed: 3, reverse: false,
+  size: 12, depth: 16, blur: 16, fade: 46,
+  // Interaction off by default: no hover effect, ripple strength zero.
+  hoverMode: 'none', hoverAmt: 35, hoverSpread: 0,
+  ripAmt: 0, ripSpeed: 8,
+  // Drag-to-spin: grab the ring and fling it; friction decays the spin and
+  // blends back into the base auto-rotation. grip = degrees per 100px of
+  // drag, resist = decay rate, weight = drag smoothing/lag (heavier = lazier).
+  dragOn: true, dragGrip: 60, dragResist: 5, dragWeight: 30,
+  // Intro: icons scale/fade in at their orbit positions, staggered around the
+  // ring, while the orbit is already turning. Prepended to exports when on.
+  introOn: false, introMs: 1200, introStagger: 40,
+};
+// Ring "Load defaults" also resets these stage-level values (the line preset
+// leaves them untouched, matching its historical behavior).
+const RING_STAGE_DEFAULTS = { count: 25, stageZoom: 48, bgOn: true, bgMode: 'solid', bgColor: '#ffffff' };
+
 const state = {
   count: 15, spacing: 18, scale: 75, a8cScale: 40, stageZoom: 50,
   duration: 1000, stagger: 50, slideDistance: 36, startScale: 10,
@@ -3693,6 +3951,10 @@ const state = {
     a8cOut:   { duration: 900, stagger: 21, slideDistance: 0,  startScale: 55, easing: 'cubic-bezier(0.28, 0, 0, 1)', auto: { duration: false, stagger: false, slideDistance: false, startScale: false, easing: true }, reverseOrder: true },
   },
   bgOn: true, bgColor: '#ffffff',
+  // v2.1 gradient background. bgColor doubles as gradient color A.
+  // bgAngle: linear direction (CSS convention). bgPos: radial center X %.
+  // bgSpread: % position of the color-B stop.
+  bgMode: 'solid', bgColorB: '#dfe3ff', bgAngle: 135, bgPos: 50, bgSpread: 100,
   aspectRatio: '16:9',
   // First-load default = Large (3840×2160 for 16:9). populateResolutionDropdown
   // will keep this selected on boot; switching aspect re-snaps to that ratio's standard.
@@ -3710,6 +3972,15 @@ const state = {
   panelState: 'docked',
   panelX: null, panelY: null,
   totalDuration: 0,
+  // v2.1: stage layout — 'line' (classic timeline-driven row) or 'ring'
+  // (continuous 3D orbit; bypasses the segment timeline).
+  layout: 'line',
+  ring: Object.assign({}, RING_DEFAULTS),
+  // Link toggle between LINE/RING: when true, the settings both layouts share
+  // (icon count, zoom, background) stay mirrored. When false, each layout
+  // keeps its own copy in layoutShared and they swap on layout switch.
+  layoutLink: true,
+  layoutShared: { line: null, ring: null },
 };
 
 // Anchor table: tuned values for canonical icon counts. Auto values for any
@@ -3971,6 +4242,7 @@ function persist() {
     count: state.count, spacing: state.spacing, scale: state.scale, a8cScale: state.a8cScale, stageZoom: state.stageZoom,
     duration: state.duration, stagger: state.stagger, slideDistance: state.slideDistance,
     startScale: state.startScale, easing: state.easing, bgOn: state.bgOn, bgColor: state.bgColor,
+    bgMode: state.bgMode, bgColorB: state.bgColorB, bgAngle: state.bgAngle, bgPos: state.bgPos, bgSpread: state.bgSpread,
     auto: state.auto,
     activeSegment: state.activeSegment, segments: state.segments,
     aspectRatio: state.aspectRatio,
@@ -3978,6 +4250,8 @@ function persist() {
     segmentPauses: state.segmentPauses,
     library: state.library, assignments: state.assignments,
     theme: state.theme, panelState: state.panelState, panelX: state.panelX, panelY: state.panelY,
+    layout: state.layout, ring: state.ring,
+    layoutLink: state.layoutLink, layoutShared: state.layoutShared,
   };
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave)); } catch (e) {}
 }
@@ -4058,6 +4332,14 @@ function restore() {
       if (typeof state.segments[k].reverseOrder !== 'boolean') state.segments[k].reverseOrder = false;
     });
     if (!state.activeSegment || !SEGMENT_KEYS.includes(state.activeSegment)) state.activeSegment = 'logosIn';
+    // Saves predating v2.1 have no layout/ring; fill defaults and keep any
+    // saved ring keys forward-compatible by merging over the defaults.
+    if (state.layout !== 'ring') state.layout = 'line';
+    state.ring = Object.assign({}, RING_DEFAULTS, data.ring || {});
+    if (typeof state.layoutLink !== 'boolean') state.layoutLink = true;
+    if (!state.layoutShared || typeof state.layoutShared !== 'object') {
+      state.layoutShared = { line: null, ring: null };
+    }
     if (typeof data.duration === 'number') {
       // Old format: copy top-level animation params into logosIn.
       const li = state.segments.logosIn;
@@ -4355,11 +4637,20 @@ function loadDefaults() {
   // Use stable IDs ('01'..'25') from DEFAULT_ICONS so DEFAULT_LAYOUTS can
   // reference them by ID. User-uploaded icons still get random IDs from uid().
   state.library = DEFAULT_ICONS.map(d => ({ id: d.id, name: d.name, svg: d.svg }));
-  // Default count is 15 — matches the curated 15-icon layout.
-  state.count = 15;
-  // Assign slots from the layout table for the default count.
+  // Layout-specific defaults: this button is intentionally NOT mirrored by
+  // the layout link — each layout loads its own designed preset.
+  if (state.layout === 'ring') {
+    Object.assign(state, RING_STAGE_DEFAULTS);
+    state.ring = Object.assign({}, RING_DEFAULTS);
+  } else {
+    // Default count is 15 — matches the curated 15-icon layout.
+    state.count = 15;
+  }
+  // Assign slots from the layout table for the active count.
   state.assignments = (DEFAULT_LAYOUTS[state.count] || []).slice();
+  recomputeAuto();
   renderLibrary();
+  bindUIFromState();
   renderStage();
   persist();
 }
@@ -4483,18 +4774,184 @@ function isOutSegment() {
   return state.activeSegment === 'logosOut' || state.activeSegment === 'a8cOut';
 }
 
+// ---- Ring layout engine (v2.1) ----
+// Slots orbit a tilted ellipse in canvas-px space; depth along the ellipse
+// drives scale, DoF blur, opacity, and stacking. Hover and click-ripple are
+// live-preview-only effects (not exported).
+let ringRAF = null, ringOrbs = [], ringHover = [], ringHoveredIdx = -1;
+let ringRipples = [], ringBaseAngle = 0, ringLastT = 0, ringIntroT0 = 0;
+const RING_RIPPLE_LIFE = 2.5; // seconds
+const RING_INTRO_EASE = 'cubic-bezier(0.28, 0, 0, 1)'; // house easing
+// Drag-to-spin state. ringSpinVel (deg/s) is the smoothed grab velocity while
+// dragging and the fling velocity after release; null = normal auto-rotation.
+let ringDragActive = false, ringDragMoved = false, ringDragStartX = 0;
+let ringDragLastX = 0, ringDragLastT = 0, ringDragLastMoveT = 0;
+let ringDragInstV = 0, ringSpinVel = null;
+const RING_MAX_FLING = 720;   // deg/s cap so a violent flick doesn't strobe
+const RING_DRAG_THRESHOLD = 5; // px before a press counts as a drag, not a click
+
+function stopRingLoop() {
+  if (ringRAF) { cancelAnimationFrame(ringRAF); ringRAF = null; }
+}
+
+// Per-icon intro progress (0 → 1) at ring-local time tMs. Icons appear in
+// ring order, each delayed by introStagger.
+function ringIntroFactor(i, tMs) {
+  const R = state.ring;
+  if (!R.introOn) return 1;
+  const p = (tMs - i * R.introStagger) / R.introMs;
+  if (p >= 1) return 1;
+  if (p <= 0) return 0;
+  return easeFromString(RING_INTRO_EASE, p);
+}
+
+// Total intro length, prepended to ring exports when the intro is on.
+function getRingIntroMs() {
+  const R = state.ring;
+  return R.introOn ? R.introMs + R.introStagger * (state.count - 1) : 0;
+}
+
+function renderRingStage(iconRow) {
+  iconRow.style.gap = '0px';
+  ringOrbs = [];
+  ringHover = new Array(state.count).fill(0);
+  ringHoveredIdx = -1;
+  ringRipples = [];
+  for (let i = 0; i < state.count; i++) {
+    const slot = document.createElement('div');
+    slot.className = 'icon-slot';
+    slot.dataset.index = i;
+    const assigned = state.assignments[i];
+    const icon = assigned ? state.library.find(x => x.id === assigned) : null;
+    if (icon) {
+      slot.innerHTML = icon.svg;
+    } else {
+      slot.classList.add('empty');
+      slot.textContent = '+';
+    }
+    slot.addEventListener('pointerenter', () => { ringHoveredIdx = i; });
+    slot.addEventListener('pointerleave', () => { if (ringHoveredIdx === i) ringHoveredIdx = -1; });
+    slot.addEventListener('click', () => {
+      // A drag that ends on an icon still fires click — only ripple on true clicks.
+      if (ringDragMoved) return;
+      ringRipples.push({ origin: i, start: performance.now() });
+    });
+    iconRow.appendChild(slot);
+    ringOrbs.push(slot);
+  }
+  ringIntroT0 = performance.now();
+  if (!ringRAF) {
+    ringLastT = performance.now();
+    ringRAF = requestAnimationFrame(ringFrame);
+  }
+}
+
+function ringFrame(t) {
+  if (state.layout !== 'ring' || !ringOrbs.length) { ringRAF = null; return; }
+  // Clamp dt so a backgrounded tab doesn't jump the ring on return.
+  const dt = Math.min(0.1, Math.max(0, (t - ringLastT) / 1000));
+  ringLastT = t;
+  const R = state.ring;
+  // Rotation: grabbed (smoothed pointer velocity) → flung (friction decay,
+  // blending back into auto-rotation) → auto.
+  if (ringDragActive && ringDragMoved && R.dragOn) {
+    if (t - ringDragLastMoveT > 80) ringDragInstV = 0; // pointer parked mid-hold
+    const k = 40 - 37 * (R.dragWeight / 100); // weight 0 → snappy, 100 → heavy
+    if (ringSpinVel === null) ringSpinVel = 0;
+    ringSpinVel += (ringDragInstV - ringSpinVel) * Math.min(1, dt * k);
+    ringSpinVel = Math.max(-RING_MAX_FLING, Math.min(RING_MAX_FLING, ringSpinVel));
+    ringBaseAngle += ringSpinVel * dt;
+  } else if (ringSpinVel !== null) {
+    ringSpinVel *= Math.exp(-R.dragResist * 0.5 * dt);
+    ringBaseAngle += ringSpinVel * dt;
+    const base = R.speed * (R.reverse ? -1 : 1);
+    if (Math.abs(ringSpinVel) <= Math.max(2, Math.abs(base))) ringSpinVel = null;
+  } else {
+    ringBaseAngle += R.speed * dt * (R.reverse ? -1 : 1);
+  }
+  ringBaseAngle %= 360;
+  ringRipples = ringRipples.filter(r => (t - r.start) / 1000 <= RING_RIPPLE_LIFE);
+
+  const canvas = getCanvas();
+  const cx = canvas.w / 2, cy = canvas.h / 2;
+  const rx = (canvas.w / 2) * R.radius / 100;
+  const ry = rx * R.tilt / 100;
+  const a = R.angle * Math.PI / 180;
+  const cosA = Math.cos(a), sinA = Math.sin(a);
+  const frontSize = canvas.h * R.size / 100;
+  const blurScale = canvas.h / 1080; // blur slider is calibrated at 1080p
+  const hoverDir = R.hoverMode === 'grow' ? 1 : R.hoverMode === 'shrink' ? -1 : 0;
+  const ease = Math.min(1, dt * 10);
+  const n = ringOrbs.length;
+
+  for (let i = 0; i < n; i++) {
+    const th = (ringBaseAngle + i * 360 / n) * Math.PI / 180;
+    const ex = rx * Math.cos(th);
+    const ey = ry * Math.sin(th);
+    const d01 = (Math.sin(th) + 1) / 2; // 0 = back of ring, 1 = front
+    const x = cx + ex * cosA - ey * sinA;
+    const y = cy + ex * sinA + ey * cosA;
+
+    // Hover target falls off to ring neighbors (gaussian over ring distance).
+    // Suppressed mid-drag — the ring sliding under the pointer isn't a hover.
+    let hoverTarget = 0;
+    if (ringHoveredIdx >= 0 && hoverDir !== 0 && !ringDragActive) {
+      const raw = Math.abs(i - ringHoveredIdx);
+      const dist = Math.min(raw, n - raw);
+      const sigma = Math.max(0.45, R.hoverSpread);
+      hoverTarget = (R.hoverSpread === 0 && dist > 0)
+        ? 0
+        : Math.exp(-(dist * dist) / (2 * sigma * sigma));
+    }
+    ringHover[i] += (hoverTarget - ringHover[i]) * ease;
+
+    // Click ripple: gaussian bump travelling both ways around the ring.
+    let rip = 0;
+    for (const r of ringRipples) {
+      const age = (t - r.start) / 1000;
+      const raw = Math.abs(i - r.origin);
+      const dist = Math.min(raw, n - raw);
+      const dx = dist - age * R.ripSpeed;
+      rip += Math.exp(-(dx * dx) / 0.8) * (1 - age / RING_RIPPLE_LIFE);
+    }
+
+    const intro = ringIntroFactor(i, t - ringIntroT0);
+    const scale = (1 - (R.depth / 100) * (1 - d01))
+      * (1 + hoverDir * (R.hoverAmt / 100) * ringHover[i])
+      * (1 + (R.ripAmt / 100) * rip)
+      * intro;
+    const size = frontSize * scale;
+    const blur = R.blur * (1 - d01) * blurScale;
+
+    const el = ringOrbs[i];
+    el.style.width = el.style.height = size.toFixed(1) + 'px';
+    el.style.transform = 'translate(' + (x - size / 2).toFixed(1) + 'px, ' + (y - size / 2).toFixed(1) + 'px)';
+    el.style.filter = blur > 0.1 ? 'blur(' + blur.toFixed(2) + 'px)' : 'none';
+    el.style.opacity = ((1 - (R.fade / 100) * (1 - d01)) * intro).toFixed(3);
+    el.style.zIndex = Math.round(d01 * 1000);
+  }
+  ringRAF = requestAnimationFrame(ringFrame);
+}
+
 function renderStage(skipAnimation = false) {
   ensureAssignments();
   const stageInner = document.getElementById('stageInner');
   const iconRow = document.getElementById('iconRow');
   if (state.bgOn) {
     stageInner.classList.remove('bg-off');
-    stageInner.style.setProperty('--bg-color', state.bgColor);
+    stageInner.style.setProperty('--bg-color', getBgCSS());
   } else {
     stageInner.classList.add('bg-off');
   }
   applyZoom();
   iconRow.innerHTML = '';
+
+  document.getElementById('app').dataset.layout = state.layout || 'line';
+  if (state.layout === 'ring') {
+    renderRingStage(iconRow);
+    return;
+  }
+  stopRingLoop();
 
   if (isA8cSegment()) {
     // A8C: use the wordmark's natural source-SVG spacing, not the icon Spacing
@@ -4828,6 +5285,7 @@ async function generateWebMBlob() {
 }
 
 async function exportWebM() {
+  if (ringVideoLocked()) { showToast('Ring speed is below 7 — speed it up to render video'); return; }
   const blob = await generateWebMBlob();
   downloadBlob(blob, buildFilename('webm'));
   showToast('WebM exported (' + (blob.size / 1024 / 1024).toFixed(1) + ' MB)');
@@ -4836,6 +5294,7 @@ async function exportWebM() {
 // MP4 export via WebCodecs (browser-native H.264 encoder) + mp4-muxer.
 // Works in Chrome/Edge/Safari 16.4+. No external scripts, no large downloads.
 async function exportMP4() {
+  if (ringVideoLocked()) { showToast('Ring speed is below 7 — speed it up to render video'); return; }
   // Feature check
   if (typeof VideoEncoder === 'undefined') {
     showToast('MP4 export needs Chrome, Edge, or Safari 16.4+');
@@ -4971,7 +5430,9 @@ async function exportMP4() {
 function getIconRenderSize(w, h) {
   const c = getCanvas();
   const s = Math.min(w / c.w, h / c.h);
-  return getSlotSize() * s;
+  // Ring icons size from the ring's front icon height, not the line slot size.
+  const base = state.layout === 'ring' ? (c.h * state.ring.size / 100) : getSlotSize();
+  return base * s;
 }
 // Same calc but using the A8C-specific slot size — feeds renderA8cLettersToImages.
 function getA8cRenderSize(w, h) {
@@ -5159,7 +5620,22 @@ function getPauseSecondsBetween(prevSeg, nextSeg) {
 }
 // Build { items: [{ seg, startMs, durMs, endMs }], totalMs } for the selected
 // segments, played back-to-back with user-configurable inter-segment pauses.
+// Ring exports cover exactly one revolution so the video loops seamlessly.
+// Speed 0 (static ring) exports a 4-second hold.
+function getRingLoopMs() {
+  const sp = state.ring.speed;
+  return sp > 0 ? Math.round((360 / sp) * 1000) : 4000;
+}
+// Frozen at export start so every drawRingFrame call is a pure function of
+// timeMs even while the live preview keeps advancing ringBaseAngle.
+let ringExportStartAngle = 0;
+
 function buildExportTimeline() {
+  if (state.layout === 'ring') {
+    ringExportStartAngle = ringBaseAngle;
+    const ms = getRingIntroMs() + getRingLoopMs();
+    return { items: [{ seg: 'ring', startMs: 0, durMs: ms, endMs: ms }], totalMs: ms };
+  }
   const selected = getSelectedSegmentsForExport();
   const items = [];
   let cursor = 0;
@@ -5232,12 +5708,13 @@ async function renderA8cLettersToImages(slotH) {
 // Per-segment frame renderer. Reads animation params from state.segments[seg],
 // picks icons vs letters, and applies in/out direction.
 function drawSegmentFrame(ctx, w, h, seg, localTMs, iconImages, a8cImages) {
+  if (seg === 'ring') { drawRingFrame(ctx, w, h, localTMs, iconImages); return; }
   const segObj = state.segments[seg];
   if (!segObj) return;
   const isA8c = isA8cSeg(seg);
   const isOut = isOutSeg(seg);
 
-  if (state.bgOn) { ctx.fillStyle = state.bgColor; ctx.fillRect(0, 0, w, h); }
+  if (state.bgOn) fillBgCanvas(ctx, w, h);
   else ctx.clearRect(0, 0, w, h);
 
   const _c = getCanvas(), stageW = _c.w, stageH = _c.h;
@@ -5344,8 +5821,135 @@ function drawSequenceFrameSupersampled(ctx, w, h, timeline, globalTMs, iconImage
   drawSegmentFrameSupersampled(ctx, w, h, it.seg, localT, iconImages, a8cImages);
 }
 
+// ---- Gradient background (v2.1) ----
+// One source of truth for the background in all renderers: CSS string for the
+// live stage / HTML export, canvas fill for frame exports, SVG def for the
+// SVG export. bgColor is gradient color A; the spread slider positions the
+// color-B stop.
+function getBgCSS() {
+  if (state.bgMode === 'linear') {
+    return 'linear-gradient(' + state.bgAngle + 'deg, ' + state.bgColor + ' 0%, ' + state.bgColorB + ' ' + state.bgSpread + '%)';
+  }
+  if (state.bgMode === 'radial') {
+    return 'radial-gradient(circle at ' + state.bgPos + '% 50%, ' + state.bgColor + ' 0%, ' + state.bgColorB + ' ' + state.bgSpread + '%)';
+  }
+  return state.bgColor;
+}
+
+function fillBgCanvas(ctx, w, h) {
+  if (state.bgMode === 'linear') {
+    // CSS angle convention: 0deg = to top, clockwise. Gradient line length per
+    // the CSS spec so canvas output matches the live preview.
+    const rad = state.bgAngle * Math.PI / 180;
+    const dx = Math.sin(rad), dy = -Math.cos(rad);
+    const len = Math.abs(w * dx) + Math.abs(h * dy);
+    const cx = w / 2, cy = h / 2;
+    const g = ctx.createLinearGradient(cx - dx * len / 2, cy - dy * len / 2, cx + dx * len / 2, cy + dy * len / 2);
+    g.addColorStop(0, state.bgColor);
+    g.addColorStop(Math.max(0.001, state.bgSpread / 100), state.bgColorB);
+    ctx.fillStyle = g;
+  } else if (state.bgMode === 'radial') {
+    // CSS default sizing: circle to the farthest corner.
+    const cx = w * state.bgPos / 100, cy = h / 2;
+    const r = Math.hypot(Math.max(cx, w - cx), Math.max(cy, h - cy));
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    g.addColorStop(0, state.bgColor);
+    g.addColorStop(Math.max(0.001, state.bgSpread / 100), state.bgColorB);
+    ctx.fillStyle = g;
+  } else {
+    ctx.fillStyle = state.bgColor;
+  }
+  ctx.fillRect(0, 0, w, h);
+}
+
+// Pre-blurred icon variants for the ring's DoF, built once per icon per
+// quantized blur level and cached on the bitmap. Blurring at draw time with
+// ctx.filter would re-run the gaussian on every frame of the export — too slow
+// for the realtime WebM recorder at supersampled resolutions. The variant
+// canvas is enlarged by 3·blur per side so the gaussian tail isn't clipped.
+function getBlurredIconVariant(img, blurBmpPx) {
+  if (typeof document.createElement('canvas').getContext('2d').filter === 'undefined') return img;
+  // Quantize to 1/128 of the bitmap's inner size (~0.8% of the drawn icon) so
+  // near-focus icons stay visually sharp. Level 0 = no blur at all — without
+  // it, every icon except the exact focal one got a heavy minimum blur.
+  const innerPx = img.width / (img.padScale || 1);
+  const stepPx = Math.max(0.5, innerPx / 128);
+  const level = Math.round(blurBmpPx / stepPx);
+  if (level === 0) return img;
+  if (!img._blurCache) img._blurCache = {};
+  if (img._blurCache[level]) return img._blurCache[level];
+  const blur = level * stepPx;
+  const margin = Math.ceil(blur * 3);
+  const c = document.createElement('canvas');
+  c.width = img.width + margin * 2;
+  c.height = img.height + margin * 2;
+  const cx = c.getContext('2d');
+  cx.filter = 'blur(' + blur + 'px)';
+  cx.drawImage(img, margin, margin);
+  c.padScale = c.width / innerPx;
+  img._blurCache[level] = c;
+  return c;
+}
+
+// Deterministic ring frame for exports: same geometry as the live ringFrame
+// loop, but angle is a pure function of timeMs from the frozen export start
+// angle, and the interactive effects (hover, ripple) are omitted.
+function drawRingFrame(ctx, w, h, timeMs, iconImages) {
+  if (state.bgOn) fillBgCanvas(ctx, w, h);
+  else ctx.clearRect(0, 0, w, h);
+  const _c = getCanvas(); const stageW = _c.w, stageH = _c.h;
+  const s = Math.min(w / stageW, h / stageH);
+  const offsetX = (w - stageW * s) / 2;
+  const offsetY = (h - stageH * s) / 2;
+  const R = state.ring;
+  const cxStage = stageW / 2, cyStage = stageH / 2;
+  const rx = (stageW / 2) * R.radius / 100;
+  const ry = rx * R.tilt / 100;
+  const a = R.angle * Math.PI / 180;
+  const cosA = Math.cos(a), sinA = Math.sin(a);
+  const frontSize = stageH * R.size / 100;
+  const blurStageScale = stageH / 1080; // blur slider is calibrated at 1080p
+  const baseAngle = ringExportStartAngle + R.speed * (timeMs / 1000) * (R.reverse ? -1 : 1);
+  const n = state.count;
+
+  // Painter's order: back of the ring first so front icons overlap correctly.
+  const order = [];
+  for (let i = 0; i < n; i++) {
+    const th = (baseAngle + i * 360 / n) * Math.PI / 180;
+    order.push([i, (Math.sin(th) + 1) / 2, th]);
+  }
+  order.sort((p, q) => p[1] - q[1]);
+
+  for (const [i, d01, th] of order) {
+    const img = iconImages[i];
+    if (!img) continue;
+    const intro = ringIntroFactor(i, timeMs);
+    if (intro <= 0) continue;
+    const ex = rx * Math.cos(th);
+    const ey = ry * Math.sin(th);
+    const x = cxStage + ex * cosA - ey * sinA;
+    const y = cyStage + ex * sinA + ey * cosA;
+    const depthScale = 1 - (R.depth / 100) * (1 - d01);
+    const drawSize = frontSize * depthScale * intro;     // stage px
+    const blurOutPx = R.blur * (1 - d01) * blurStageScale * s; // output px
+    const innerPx = img.width / (img.padScale || 1);
+    // Map blur to bitmap px from the settled (non-intro) size so a fading-in
+    // icon doesn't request an absurdly large pre-blurred variant.
+    const blurBmpPx = blurOutPx * (innerPx / (frontSize * depthScale * s));
+    const variant = getBlurredIconVariant(img, blurBmpPx);
+    const padScale = variant.padScale || 1;
+    const destSize = drawSize * padScale;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, (1 - (R.fade / 100) * (1 - d01)) * intro);
+    ctx.drawImage(variant,
+      offsetX + (x - destSize / 2) * s, offsetY + (y - destSize / 2) * s,
+      destSize * s, destSize * s);
+    ctx.restore();
+  }
+}
+
 function drawFrame(ctx, w, h, timeMs, iconImages) {
-  if (state.bgOn) { ctx.fillStyle = state.bgColor; ctx.fillRect(0, 0, w, h); }
+  if (state.bgOn) fillBgCanvas(ctx, w, h);
   else ctx.clearRect(0, 0, w, h);
   const _c = getCanvas(); const stageW = _c.w, stageH = _c.h;
   const sx = w / stageW;
@@ -5397,7 +6001,7 @@ function downloadBlob(blob, filename) {
 
 // Build a descriptive filename like "icon-stage_1920x1080_high-q_v1.mp4".
 // `extra` is an optional segment (e.g. 'preset' for preset JSON).
-const APP_VERSION = 'v2';
+const APP_VERSION = 'v2.1';
 function buildFilename(ext, extra) {
   const parts = ['product-logos-slide-tool'];
   if (extra) parts.push(extra);
@@ -5407,6 +6011,12 @@ function buildFilename(ext, extra) {
 }
 
 async function exportSVG() {
+  if (state.layout === 'ring') {
+    // The animated-SVG exporter builds CSS-keyframe slide-ins; the ring's
+    // continuous orbit + per-icon blur needs a different generator (future work).
+    showToast('Animated SVG export is not available in ring mode yet');
+    return;
+  }
   const [w, h] = state.resolution.split('x').map(Number);
   const _c = getCanvas(); const stageW = _c.w, stageH = _c.h;
   const s = Math.min(w / stageW, h / stageH);
@@ -5423,7 +6033,22 @@ async function exportSVG() {
   const m = state.easing.match(/cubic-bezier\(([^)]+)\)/);
   const ks = m ? m[1].split(',').map(s => s.trim()).join(' ') : '0.42 0 0.58 1';
   let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">`;
-  if (state.bgOn) svg += `<rect width="${w}" height="${h}" fill="${state.bgColor}"/>`;
+  if (state.bgOn) {
+    if (state.bgMode === 'linear') {
+      // CSS 0deg = to top, clockwise; map to SVG x1/y1→x2/y2 across the box.
+      const rad = state.bgAngle * Math.PI / 180;
+      const dx = Math.sin(rad) / 2, dy = -Math.cos(rad) / 2;
+      svg += `<defs><linearGradient id="bgGrad" x1="${50 - dx * 100}%" y1="${50 - dy * 100}%" x2="${50 + dx * 100}%" y2="${50 + dy * 100}%">`
+        + `<stop offset="0%" stop-color="${state.bgColor}"/><stop offset="${state.bgSpread}%" stop-color="${state.bgColorB}"/>`
+        + `</linearGradient></defs><rect width="${w}" height="${h}" fill="url(#bgGrad)"/>`;
+    } else if (state.bgMode === 'radial') {
+      svg += `<defs><radialGradient id="bgGrad" cx="${state.bgPos}%" cy="50%" r="75%">`
+        + `<stop offset="0%" stop-color="${state.bgColor}"/><stop offset="${state.bgSpread}%" stop-color="${state.bgColorB}"/>`
+        + `</radialGradient></defs><rect width="${w}" height="${h}" fill="url(#bgGrad)"/>`;
+    } else {
+      svg += `<rect width="${w}" height="${h}" fill="${state.bgColor}"/>`;
+    }
+  }
   for (let i = 0; i < state.count; i++) {
     const id = state.assignments[i];
     if (!id) continue;
@@ -5465,6 +6090,156 @@ async function exportSVG() {
   showToast('SVG exported');
 }
 
+// Ring-mode "Export Interactive HTML": a self-contained file with the ring
+// engine inlined — orbit, DoF, hover (incl. spread), ripple, and the intro if
+// enabled. The ring sizes itself from its container, so the file works
+// full-page, in an iframe, or dropped into any fixed-size div. Honors
+// prefers-reduced-motion by parking the orbit on its settled state.
+function exportRingHTML() {
+  const R = state.ring;
+  let inner = '';
+  for (let i = 0; i < state.count; i++) {
+    const aid = state.assignments[i];
+    const icon = aid ? state.library.find(x => x.id === aid) : null;
+    if (!icon) continue;
+    inner += '<div class="orb" title="' + (icon.name || '') + '">' + icon.svg + '</div>';
+  }
+  const cfg = {
+    radius: R.radius, tilt: R.tilt, angle: R.angle, speed: R.speed, reverse: !!R.reverse,
+    size: R.size, depth: R.depth, blur: R.blur, fade: R.fade,
+    hoverMode: R.hoverMode, hoverAmt: R.hoverAmt, hoverSpread: R.hoverSpread,
+    ripAmt: R.ripAmt, ripSpeed: R.ripSpeed,
+    introOn: !!R.introOn, introMs: R.introMs, introStagger: R.introStagger,
+    dragOn: !!R.dragOn, dragGrip: R.dragGrip, dragResist: R.dragResist, dragWeight: R.dragWeight,
+  };
+  const bg = state.bgOn ? 'background:' + getBgCSS() + ';' : '';
+  // The generated script avoids template literals so this outer template stays sane.
+  const engine = [
+    'var CFG = ' + JSON.stringify(cfg) + ';',
+    'var stage = document.getElementById("stage");',
+    'var orbs = Array.prototype.slice.call(stage.querySelectorAll(".orb"));',
+    'var n = orbs.length;',
+    'var reduced = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;',
+    'var hover = new Array(n).fill(0), hoveredIdx = -1, ripples = [];',
+    'var RIP_LIFE = 2.5, EASE_P1 = 0.28;',
+    'var baseAngle = 0, lastT = performance.now(), introT0 = performance.now();',
+    'function easeOut(p) { var u = 1 - p; return 1 - u * u * u; }',
+    'function introFactor(i, t) {',
+    '  if (!CFG.introOn || reduced) return 1;',
+    '  var p = (t - introT0 - i * CFG.introStagger) / CFG.introMs;',
+    '  return p >= 1 ? 1 : p <= 0 ? 0 : easeOut(p);',
+    '}',
+    'orbs.forEach(function (el, i) {',
+    '  el.addEventListener("pointerenter", function () { hoveredIdx = i; });',
+    '  el.addEventListener("pointerleave", function () { if (hoveredIdx === i) hoveredIdx = -1; });',
+    '  el.addEventListener("click", function () { if (dragMoved) return; ripples.push({ origin: i, start: performance.now() }); });',
+    '});',
+    'var dragActive = false, dragMoved = false, dragStartX = 0, dragLastX = 0;',
+    'var dragLastT = 0, dragLastMoveT = 0, dragInstV = 0, spinVel = null;',
+    'stage.addEventListener("pointerdown", function (e) {',
+    '  if (!CFG.dragOn) return;',
+    '  dragActive = true; dragMoved = false;',
+    '  dragStartX = dragLastX = e.clientX;',
+    '  dragLastT = dragLastMoveT = performance.now();',
+    '  dragInstV = 0;',
+    '});',
+    'window.addEventListener("pointermove", function (e) {',
+    '  if (!dragActive) return;',
+    '  var now = performance.now();',
+    '  if (Math.abs(e.clientX - dragStartX) > 5) dragMoved = true;',
+    '  var dtm = Math.max(1, now - dragLastT) / 1000;',
+    '  dragInstV = ((e.clientX - dragLastX) / dtm) * (CFG.dragGrip / 100);',
+    '  dragLastX = e.clientX; dragLastT = now; dragLastMoveT = now;',
+    '});',
+    'window.addEventListener("pointerup", function () {',
+    '  if (!dragActive) return;',
+    '  dragActive = false;',
+    '  if (dragMoved && spinVel !== null) spinVel = Math.max(-720, Math.min(720, spinVel));',
+    '});',
+    'function frame(t) {',
+    '  var dt = Math.min(0.1, Math.max(0, (t - lastT) / 1000));',
+    '  lastT = t;',
+    '  if (dragActive && dragMoved && CFG.dragOn) {',
+    '    if (t - dragLastMoveT > 80) dragInstV = 0;',
+    '    var kk = 40 - 37 * (CFG.dragWeight / 100);',
+    '    if (spinVel === null) spinVel = 0;',
+    '    spinVel += (dragInstV - spinVel) * Math.min(1, dt * kk);',
+    '    spinVel = Math.max(-720, Math.min(720, spinVel));',
+    '    baseAngle = (baseAngle + spinVel * dt) % 360;',
+    '  } else if (spinVel !== null) {',
+    '    spinVel *= Math.exp(-CFG.dragResist * 0.5 * dt);',
+    '    baseAngle = (baseAngle + spinVel * dt) % 360;',
+    '    var baseSp = CFG.speed * (CFG.reverse ? -1 : 1);',
+    '    if (Math.abs(spinVel) <= Math.max(2, Math.abs(baseSp))) spinVel = null;',
+    '  } else if (!reduced) {',
+    '    baseAngle = (baseAngle + CFG.speed * dt * (CFG.reverse ? -1 : 1)) % 360;',
+    '  }',
+    '  ripples = ripples.filter(function (r) { return (t - r.start) / 1000 <= RIP_LIFE; });',
+    '  var cw = stage.clientWidth, ch = stage.clientHeight;',
+    '  var rx = (cw / 2) * CFG.radius / 100;',
+    '  var ry = rx * CFG.tilt / 100;',
+    '  var a = CFG.angle * Math.PI / 180;',
+    '  var cosA = Math.cos(a), sinA = Math.sin(a);',
+    '  var frontSize = ch * CFG.size / 100;',
+    '  var blurScale = ch / 1080;',
+    '  var hoverDir = CFG.hoverMode === "grow" ? 1 : CFG.hoverMode === "shrink" ? -1 : 0;',
+    '  var ease = Math.min(1, dt * 10);',
+    '  for (var i = 0; i < n; i++) {',
+    '    var th = (baseAngle + i * 360 / n) * Math.PI / 180;',
+    '    var ex = rx * Math.cos(th), ey = ry * Math.sin(th);',
+    '    var d01 = (Math.sin(th) + 1) / 2;',
+    '    var x = cw / 2 + ex * cosA - ey * sinA;',
+    '    var y = ch / 2 + ex * sinA + ey * cosA;',
+    '    var hoverTarget = 0;',
+    '    if (hoveredIdx >= 0 && hoverDir !== 0 && !dragActive) {',
+    '      var hraw = Math.abs(i - hoveredIdx);',
+    '      var hdist = Math.min(hraw, n - hraw);',
+    '      var sigma = Math.max(0.45, CFG.hoverSpread);',
+    '      hoverTarget = (CFG.hoverSpread === 0 && hdist > 0) ? 0 : Math.exp(-(hdist * hdist) / (2 * sigma * sigma));',
+    '    }',
+    '    hover[i] += (hoverTarget - hover[i]) * ease;',
+    '    var rip = 0;',
+    '    for (var k = 0; k < ripples.length; k++) {',
+    '      var age = (t - ripples[k].start) / 1000;',
+    '      var rraw = Math.abs(i - ripples[k].origin);',
+    '      var rdist = Math.min(rraw, n - rraw);',
+    '      var dx = rdist - age * CFG.ripSpeed;',
+    '      rip += Math.exp(-(dx * dx) / 0.8) * (1 - age / RIP_LIFE);',
+    '    }',
+    '    var intro = introFactor(i, t);',
+    '    var scale = (1 - (CFG.depth / 100) * (1 - d01))',
+    '      * (1 + hoverDir * (CFG.hoverAmt / 100) * hover[i])',
+    '      * (1 + (CFG.ripAmt / 100) * rip)',
+    '      * intro;',
+    '    var size = frontSize * scale;',
+    '    var blur = CFG.blur * (1 - d01) * blurScale;',
+    '    var el = orbs[i];',
+    '    el.style.width = el.style.height = size.toFixed(1) + "px";',
+    '    el.style.transform = "translate(" + (x - size / 2).toFixed(1) + "px, " + (y - size / 2).toFixed(1) + "px)";',
+    '    el.style.filter = blur > 0.1 ? "blur(" + blur.toFixed(2) + "px)" : "none";',
+    '    el.style.opacity = ((1 - (CFG.fade / 100) * (1 - d01)) * intro).toFixed(3);',
+    '    el.style.zIndex = Math.round(d01 * 1000);',
+    '  }',
+    '  requestAnimationFrame(frame);',
+    '}',
+    'requestAnimationFrame(frame);',
+  ].join('\n');
+  const html = '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n'
+    + '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n'
+    + '<title>Product Logos Ring</title>\n'
+    + '<style>\n'
+    + 'html, body { margin: 0; height: 100%; }\n'
+    + '#stage { position: relative; width: 100%; height: 100%; overflow: hidden; touch-action: none; cursor: grab; ' + bg + ' }\n'
+    + '#stage:active { cursor: grabbing; }\n'
+    + '.orb { position: absolute; left: 0; top: 0; cursor: pointer; will-change: transform, filter, opacity; }\n'
+    + '.orb svg { width: 100%; height: 100%; display: block; pointer-events: none; }\n'
+    + '</style>\n</head>\n<body>\n'
+    + '<div id="stage">' + inner + '</div>\n'
+    + '<script>\n' + engine + '\n</' + 'script>\n</body>\n</html>\n';
+  downloadBlob(new Blob([html], { type: 'text/html' }), buildFilename('html'));
+  showToast('Interactive HTML exported');
+}
+
 async function copyEmbed() {
   const _c = getCanvas(); const stageW = _c.w, stageH = _c.h;
   const slotSize = getSlotSize();
@@ -5474,7 +6249,7 @@ async function copyEmbed() {
   const startScale = state.startScale / 100;
   const ease = state.easing;
   const id = 'is-' + Math.random().toString(36).slice(2, 8);
-  const bg = state.bgOn ? `background:${state.bgColor};` : '';
+  const bg = state.bgOn ? `background:${getBgCSS()};` : '';
   let inner = '';
   for (let i = 0; i < state.count; i++) {
     const aid = state.assignments[i];
@@ -5531,6 +6306,7 @@ async function exportPNG() {
 }
 
 async function exportGIF() {
+  if (ringVideoLocked()) { showToast('Ring speed is below 7 — speed it up to render video'); return; }
   if (!window.gifenc) {
     showToast('GIF encoder not loaded');
     return;
@@ -5587,6 +6363,7 @@ function savePreset() {
       count: state.count, spacing: state.spacing, scale: state.scale, a8cScale: state.a8cScale, stageZoom: state.stageZoom,
       duration: state.duration, stagger: state.stagger, slideDistance: state.slideDistance,
       startScale: state.startScale, easing: state.easing, bgOn: state.bgOn, bgColor: state.bgColor,
+    bgMode: state.bgMode, bgColorB: state.bgColorB, bgAngle: state.bgAngle, bgPos: state.bgPos, bgSpread: state.bgSpread,
       aspectRatio: state.aspectRatio,
       resolution: state.resolution, fps: state.fps, library: state.library, assignments: state.assignments,
     },
@@ -5781,7 +6558,90 @@ function formatValForKey(key, val) {
   return String(val);
 }
 
+// v2.1 — [element-id-suffix, state.ring key] pairs shared by binding and UI sync.
+const RING_SLIDER_MAP = [
+  ['ringradius', 'radius'], ['ringtilt', 'tilt'], ['ringangle', 'angle'],
+  ['ringspeed', 'speed'], ['ringsize', 'size'], ['ringdepth', 'depth'],
+  ['ringblur', 'blur'], ['ringfade', 'fade'],
+  ['ringhoveramt', 'hoverAmt'], ['ringhoverspread', 'hoverSpread'],
+  ['ringripamt', 'ripAmt'], ['ringripspeed', 'ripSpeed'],
+  ['ringintroms', 'introMs'], ['ringintrostagger', 'introStagger'],
+  ['ringgrip', 'dragGrip'], ['ringresist', 'dragResist'], ['ringweight', 'dragWeight'],
+];
+
+// v2.1 — the settings both layouts have in common. Everything else (ring
+// geometry, line segments) lives in layout-specific state already.
+const LAYOUT_SHARED_KEYS = ['count', 'stageZoom', 'bgOn', 'bgColor', 'bgMode', 'bgColorB', 'bgAngle', 'bgPos', 'bgSpread'];
+function snapshotLayoutShared() {
+  const o = {};
+  LAYOUT_SHARED_KEYS.forEach(k => { o[k] = state[k]; });
+  return o;
+}
+function applyLayoutShared(snap) {
+  if (!snap) return;
+  LAYOUT_SHARED_KEYS.forEach(k => { if (k in snap) state[k] = snap[k]; });
+}
+
+// v2.1 — sync gradient background controls: active mode button, color-B
+// inputs, slider values, and which gradient rows are visible for the mode.
+function applyBgUI() {
+  ['solid', 'linear', 'radial'].forEach(m => {
+    document.getElementById('btn-bgmode-' + m).classList.toggle('active', state.bgMode === m);
+  });
+  document.getElementById('bg-color-b').value = state.bgColorB;
+  document.getElementById('bg-hex-b').value = state.bgColorB.toUpperCase();
+  document.getElementById('bg-swatch-b').style.background = state.bgColorB;
+  [['bgangle', 'bgAngle'], ['bgpos', 'bgPos'], ['bgspread', 'bgSpread']].forEach(([id, key]) => {
+    document.getElementById('r-' + id).value = state[key];
+    document.getElementById('v-' + id).value = state[key];
+  });
+  const isGrad = state.bgMode !== 'solid';
+  document.getElementById('bgColorBRow').style.display = isGrad ? '' : 'none';
+  document.getElementById('bgSpreadRow').style.display = isGrad ? '' : 'none';
+  document.getElementById('bgAngleRow').style.display = state.bgMode === 'linear' ? '' : 'none';
+  document.getElementById('bgPosRow').style.display = state.bgMode === 'radial' ? '' : 'none';
+}
+
+// Ring videos render one revolution, so slow speeds mean very long files —
+// below RING_MIN_VIDEO_SPEED the video buttons lock and the hint explains why.
+function ringVideoLocked() {
+  return state.layout === 'ring' && state.ring.speed < RING_MIN_VIDEO_SPEED;
+}
+function updateRingExportLockUI() {
+  const locked = ringVideoLocked();
+  ['btn-export-webm', 'btn-export-mp4', 'btn-export-gif'].forEach(id => {
+    document.getElementById(id).disabled = locked;
+  });
+  document.getElementById('ringSpeedNote').style.display = locked ? '' : 'none';
+}
+
+function applyLayoutUI() {
+  document.getElementById('app').dataset.layout = state.layout || 'line';
+  // playSwitch lives outside .app, so the data-layout CSS can't reach it.
+  document.getElementById('playSwitch').style.display = state.layout === 'ring' ? 'none' : '';
+  document.getElementById('btn-layout-line').classList.toggle('active', state.layout !== 'ring');
+  document.getElementById('btn-layout-ring').classList.toggle('active', state.layout === 'ring');
+  document.getElementById('btn-layout-link').classList.toggle('active', !!state.layoutLink);
+  ['grow', 'shrink', 'none'].forEach(m => {
+    document.getElementById('btn-hover-' + m).classList.toggle('active', state.ring.hoverMode === m);
+  });
+  document.getElementById('btn-ringintro-on').classList.toggle('active', !!state.ring.introOn);
+  document.getElementById('btn-ringintro-off').classList.toggle('active', !state.ring.introOn);
+  document.getElementById('btn-ringdir-fwd').classList.toggle('active', !state.ring.reverse);
+  document.getElementById('btn-ringdir-rev').classList.toggle('active', !!state.ring.reverse);
+  document.getElementById('btn-ringdrag-on').classList.toggle('active', !!state.ring.dragOn);
+  document.getElementById('btn-ringdrag-off').classList.toggle('active', !state.ring.dragOn);
+  updateRingExportLockUI();
+  RING_SLIDER_MAP.forEach(([id, key]) => {
+    const r = document.getElementById('r-' + id);
+    const v = document.getElementById('v-' + id);
+    if (r) r.value = state.ring[key];
+    if (v) v.value = state.ring[key];
+  });
+}
+
 function bindUIFromState() {
+  applyLayoutUI();
   document.getElementById('r-count').value = state.count;
   document.getElementById('v-count').value = state.count;
   // Sliders that participate in auto: write the underlying numeric value
@@ -5800,6 +6660,7 @@ function bindUIFromState() {
   document.getElementById('bg-color').value = state.bgColor;
   document.getElementById('bg-hex').value = state.bgColor.toUpperCase();
   document.getElementById('bg-swatch').style.background = state.bgColor;
+  applyBgUI();
   document.getElementById('bg-on').classList.toggle('active', state.bgOn);
   document.getElementById('bg-off').classList.toggle('active', !state.bgOn);
   document.getElementById('s-resolution').value = state.resolution;
@@ -6214,6 +7075,123 @@ function bindEvents() {
   document.getElementById('btn-overall-auto').onclick = () => setAllAuto(true);
   document.getElementById('btn-overall-custom').onclick = () => setAllAuto(false);
 
+  // v2.1 — Layout toggle + ring controls. Ring sliders write straight into
+  // state.ring; the rAF loop reads it live, so no renderStage needed on input.
+  const setLayout = (mode) => {
+    if (state.layout === mode) return;
+    // Unlinked: each layout keeps its own copy of the shared settings.
+    // Stash the outgoing layout's values, restore the incoming one's.
+    if (!state.layoutLink) {
+      state.layoutShared[state.layout] = snapshotLayoutShared();
+      applyLayoutShared(state.layoutShared[mode]);
+    }
+    state.layout = mode;
+    recomputeAuto();
+    ensureAssignments();
+    autoFillNewSlots();
+    bindUIFromState();
+    renderStage(true);
+    persist();
+  };
+  document.getElementById('btn-layout-line').onclick = () => setLayout('line');
+  document.getElementById('btn-layout-ring').onclick = () => setLayout('ring');
+  // Link toggle. Turning it either way re-seeds both stashes from the current
+  // screen, so the active layout's settings win ("transfer to the other side"
+  // when linking, and a common starting point when unlinking).
+  document.getElementById('btn-layout-link').onclick = () => {
+    state.layoutLink = !state.layoutLink;
+    const snap = snapshotLayoutShared();
+    state.layoutShared = { line: snap, ring: Object.assign({}, snap) };
+    applyLayoutUI();
+    persist();
+  };
+  ['grow', 'shrink', 'none'].forEach(mode => {
+    document.getElementById('btn-hover-' + mode).onclick = () => {
+      state.ring.hoverMode = mode;
+      applyLayoutUI();
+      persist();
+    };
+  });
+  ['fwd', 'rev'].forEach(dir => {
+    document.getElementById('btn-ringdir-' + dir).onclick = () => {
+      state.ring.reverse = dir === 'rev';
+      applyLayoutUI();
+      persist();
+    };
+  });
+  // Drag-to-spin: grab anywhere on the stage. Velocity is sampled per move
+  // event; the frame loop smooths it (Weight) and decays it after release
+  // (Resistance). A press that never crosses the threshold stays a click.
+  document.getElementById('stageInner').addEventListener('pointerdown', (e) => {
+    if (state.layout !== 'ring' || !state.ring.dragOn) return;
+    ringDragActive = true;
+    ringDragMoved = false;
+    ringDragStartX = e.clientX;
+    ringDragLastX = e.clientX;
+    ringDragLastT = performance.now();
+    ringDragLastMoveT = performance.now();
+    ringDragInstV = 0;
+  });
+  window.addEventListener('pointermove', (e) => {
+    if (!ringDragActive) return;
+    const now = performance.now();
+    if (Math.abs(e.clientX - ringDragStartX) > RING_DRAG_THRESHOLD) ringDragMoved = true;
+    const dtm = Math.max(1, now - ringDragLastT) / 1000;
+    ringDragInstV = ((e.clientX - ringDragLastX) / dtm) * (state.ring.dragGrip / 100);
+    ringDragLastX = e.clientX;
+    ringDragLastT = now;
+    ringDragLastMoveT = now;
+  });
+  window.addEventListener('pointerup', () => {
+    if (!ringDragActive) return;
+    ringDragActive = false;
+    if (ringDragMoved && ringSpinVel !== null) {
+      ringSpinVel = Math.max(-RING_MAX_FLING, Math.min(RING_MAX_FLING, ringSpinVel));
+    }
+  });
+  ['on', 'off'].forEach(mode => {
+    document.getElementById('btn-ringdrag-' + mode).onclick = () => {
+      state.ring.dragOn = mode === 'on';
+      applyLayoutUI();
+      persist();
+    };
+  });
+  // Intro toggle — turning it on rebuilds the ring so the intro replays.
+  document.getElementById('btn-ringintro-on').onclick = () => {
+    state.ring.introOn = true;
+    applyLayoutUI();
+    renderStage(true);
+    persist();
+  };
+  document.getElementById('btn-ringintro-off').onclick = () => {
+    state.ring.introOn = false;
+    applyLayoutUI();
+    persist();
+  };
+  RING_SLIDER_MAP.forEach(([id, key]) => {
+    const r = document.getElementById('r-' + id);
+    const v = document.getElementById('v-' + id);
+    if (!r || !v) return;
+    r.oninput = () => {
+      state.ring[key] = +r.value;
+      v.value = r.value;
+      if (key === 'speed') updateRingExportLockUI();
+      persist();
+    };
+    const commitRing = () => {
+      let nVal = parseFloat(v.value);
+      if (isNaN(nVal)) { v.value = state.ring[key]; return; }
+      nVal = Math.max(+r.min, Math.min(+r.max, nVal));
+      state.ring[key] = nVal;
+      r.value = nVal;
+      v.value = nVal;
+      if (key === 'speed') updateRingExportLockUI();
+      persist();
+    };
+    v.addEventListener('blur', commitRing);
+    v.addEventListener('keydown', e => { if (e.key === 'Enter') { commitRing(); v.blur(); } });
+  });
+
   document.getElementById('bg-on').onclick = () => {
     state.bgOn = true;
     document.getElementById('bg-on').classList.add('active');
@@ -6251,6 +7229,59 @@ function bindEvents() {
       e.target.value = state.bgColor.toUpperCase();
     }
   };
+
+  // v2.1 — gradient background controls.
+  ['solid', 'linear', 'radial'].forEach(mode => {
+    document.getElementById('btn-bgmode-' + mode).onclick = () => {
+      state.bgMode = mode;
+      applyBgUI();
+      renderStage();
+      persist();
+    };
+  });
+  document.getElementById('bg-color-b').oninput = (e) => {
+    state.bgColorB = e.target.value;
+    document.getElementById('bg-hex-b').value = e.target.value.toUpperCase();
+    document.getElementById('bg-swatch-b').style.background = e.target.value;
+    renderStage();
+    persist();
+  };
+  document.getElementById('bg-hex-b').onchange = (e) => {
+    let v = e.target.value.trim();
+    if (!v.startsWith('#')) v = '#' + v;
+    if (/^#[0-9a-fA-F]{6}$/.test(v)) {
+      state.bgColorB = v.toLowerCase();
+      document.getElementById('bg-color-b').value = v;
+      document.getElementById('bg-swatch-b').style.background = v;
+      e.target.value = v.toUpperCase();
+      renderStage();
+      persist();
+    } else {
+      e.target.value = state.bgColorB.toUpperCase();
+    }
+  };
+  [['bgangle', 'bgAngle'], ['bgpos', 'bgPos'], ['bgspread', 'bgSpread']].forEach(([id, key]) => {
+    const r = document.getElementById('r-' + id);
+    const v = document.getElementById('v-' + id);
+    r.oninput = () => {
+      state[key] = +r.value;
+      v.value = r.value;
+      renderStage();
+      persist();
+    };
+    const commitBg = () => {
+      let nVal = parseFloat(v.value);
+      if (isNaN(nVal)) { v.value = state[key]; return; }
+      nVal = Math.max(+r.min, Math.min(+r.max, nVal));
+      state[key] = nVal;
+      r.value = nVal;
+      v.value = nVal;
+      renderStage();
+      persist();
+    };
+    v.addEventListener('blur', commitBg);
+    v.addEventListener('keydown', e => { if (e.key === 'Enter') { commitBg(); v.blur(); } });
+  });
 
   document.getElementById('s-resolution').onchange = (e) => { state.resolution = e.target.value; persist(); };
   document.getElementById('s-fps').onchange = (e) => { state.fps = +e.target.value; persist(); };
@@ -6316,6 +7347,7 @@ function bindEvents() {
   document.getElementById('btn-export-png').onclick = exportPNG;
   document.getElementById('btn-export-gif').onclick = exportGIF;
   document.getElementById('btn-copy-embed').onclick = copyEmbed;
+  document.getElementById('btn-export-html').onclick = exportRingHTML;
 
   document.getElementById('btn-save-preset').onclick = savePreset;
   const presetInput = document.getElementById('presetInput');
