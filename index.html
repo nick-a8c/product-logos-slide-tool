@@ -1222,6 +1222,32 @@
     border-color: rgba(255,255,255,0.1);
   }
 
+  /* ---- Ring layout (v2.1) ---- */
+  /* Ring-only panel sections hide in line mode; line-only machinery (timeline,
+     segment panels, A8C, auto/custom control, spacing/scale) hides in ring mode. */
+  .section[data-ring-only] { display: none; }
+  .app[data-layout="ring"] .section[data-ring-only] { display: block; }
+  .app[data-layout="ring"] .section[data-section="control"],
+  .app[data-layout="ring"] .section[data-section="a8c"],
+  .app[data-layout="ring"] .section[data-segment],
+  .app[data-layout="ring"] .ctrl[data-auto-key="spacing"],
+  .app[data-layout="ring"] .ctrl[data-auto-key="scale"],
+  .app[data-layout="ring"] .timeline { display: none; }
+  /* Ring slots are positioned by the rAF loop in stage (canvas-px) space. */
+  .app[data-layout="ring"] .icon-row {
+    inset: 0;
+    top: 0; left: 0;
+    transform: none;
+    display: block;
+  }
+  .app[data-layout="ring"] .icon-slot {
+    position: absolute;
+    left: 0; top: 0;
+    margin: 0;
+    cursor: pointer;
+    will-change: transform, filter, opacity;
+  }
+
 </style>
 </head>
 <body>
@@ -1309,6 +1335,22 @@
 
     <div class="panel-content">
 
+      <div class="section open" data-section="layout">
+        <div class="section-header" data-toggle>
+          <h2>Layout</h2>
+          <span class="chev">›</span>
+        </div>
+        <div class="section-body">
+          <div class="ctrl-row">
+            <span class="name">Stage Layout</span>
+            <div class="overall-buttons" id="layoutButtons">
+              <button class="overall-btn active" id="btn-layout-line" type="button">LINE</button>
+              <button class="overall-btn" id="btn-layout-ring" type="button">RING</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="section open" data-section="control">
         <div class="section-header" data-toggle>
           <h2>Control</h2>
@@ -1366,6 +1408,95 @@
               <input type="range" id="r-stagezoom" min="20" max="100" step="1" value="50">
             </div>
             <input type="text" class="val" id="v-stagezoom" value="50" data-min="20" data-max="100" data-step="1">
+          </div>
+        </div>
+      </div>
+
+      <!-- Ring layout (v2.1) — visible only when Stage Layout = RING. The ring is a
+           continuous 3D orbit: these control the ellipse geometry and the
+           depth-of-field falloff toward the back of the ring. -->
+      <div class="section open" data-section="ring" data-ring-only>
+        <div class="section-header" data-toggle>
+          <h2>Ring</h2>
+          <span class="chev">›</span>
+        </div>
+        <div class="section-body">
+          <div class="ctrl">
+            <label>Radius</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringradius" min="20" max="95" step="1" value="70"></div>
+            <input type="text" class="val" id="v-ringradius" value="70" data-min="20" data-max="95" data-step="1">
+          </div>
+          <div class="ctrl">
+            <label>Tilt</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringtilt" min="5" max="100" step="1" value="32"></div>
+            <input type="text" class="val" id="v-ringtilt" value="32" data-min="5" data-max="100" data-step="1">
+          </div>
+          <div class="ctrl">
+            <label>Angle</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringangle" min="-90" max="90" step="1" value="-18"></div>
+            <input type="text" class="val" id="v-ringangle" value="-18" data-min="-90" data-max="90" data-step="1">
+          </div>
+          <div class="ctrl">
+            <label>Speed</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringspeed" min="0" max="60" step="1" value="10"></div>
+            <input type="text" class="val" id="v-ringspeed" value="10" data-min="0" data-max="60" data-step="1">
+          </div>
+          <div class="ctrl">
+            <label>Icon Size</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringsize" min="4" max="30" step="1" value="12"></div>
+            <input type="text" class="val" id="v-ringsize" value="12" data-min="4" data-max="30" data-step="1">
+          </div>
+          <div class="ctrl">
+            <label>Depth Scale</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringdepth" min="0" max="90" step="1" value="55"></div>
+            <input type="text" class="val" id="v-ringdepth" value="55" data-min="0" data-max="90" data-step="1">
+          </div>
+          <div class="ctrl">
+            <label>Blur (DoF)</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringblur" min="0" max="20" step="1" value="8"></div>
+            <input type="text" class="val" id="v-ringblur" value="8" data-min="0" data-max="20" data-step="1">
+          </div>
+          <div class="ctrl">
+            <label>Fade Back</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringfade" min="0" max="90" step="1" value="45"></div>
+            <input type="text" class="val" id="v-ringfade" value="45" data-min="0" data-max="90" data-step="1">
+          </div>
+        </div>
+      </div>
+
+      <div class="section open" data-section="ring-interaction" data-ring-only>
+        <div class="section-header" data-toggle>
+          <h2>Interaction</h2>
+          <span class="chev">›</span>
+        </div>
+        <div class="section-body">
+          <div class="ctrl-row">
+            <span class="name">Hover</span>
+            <div class="overall-buttons" id="hoverButtons">
+              <button class="overall-btn active" id="btn-hover-grow" type="button">GROW</button>
+              <button class="overall-btn" id="btn-hover-shrink" type="button">SHRINK</button>
+              <button class="overall-btn" id="btn-hover-none" type="button">OFF</button>
+            </div>
+          </div>
+          <div class="ctrl">
+            <label>Hover Amount</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringhoveramt" min="0" max="100" step="1" value="35"></div>
+            <input type="text" class="val" id="v-ringhoveramt" value="35" data-min="0" data-max="100" data-step="1">
+          </div>
+          <div class="ctrl">
+            <label>Hover Spread</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringhoverspread" min="0" max="8" step="0.5" value="0"></div>
+            <input type="text" class="val" id="v-ringhoverspread" value="0" data-min="0" data-max="8" data-step="0.5">
+          </div>
+          <div class="ctrl">
+            <label>Ripple Strength</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringripamt" min="0" max="100" step="1" value="50"></div>
+            <input type="text" class="val" id="v-ringripamt" value="50" data-min="0" data-max="100" data-step="1">
+          </div>
+          <div class="ctrl">
+            <label>Ripple Speed</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringripspeed" min="1" max="20" step="0.5" value="8"></div>
+            <input type="text" class="val" id="v-ringripspeed" value="8" data-min="1" data-max="20" data-step="0.5">
           </div>
         </div>
       </div>
@@ -3664,6 +3795,16 @@ If you want to offset all timestamps of a track such that the first one is zero,
 <script>
 const STORAGE_KEY = 'icon-stage-v2';
 
+// v2.1 ring layout defaults. radius is % of half the canvas width; size is the
+// front icon's height as % of canvas height; blur is px at 1080p (scaled with
+// resolution); depth/fade are % falloff toward the back of the ring.
+const RING_DEFAULTS = {
+  radius: 70, tilt: 32, angle: -18, speed: 10,
+  size: 12, depth: 55, blur: 8, fade: 45,
+  hoverMode: 'grow', hoverAmt: 35, hoverSpread: 0,
+  ripAmt: 50, ripSpeed: 8,
+};
+
 const state = {
   count: 15, spacing: 18, scale: 75, a8cScale: 40, stageZoom: 50,
   duration: 1000, stagger: 50, slideDistance: 36, startScale: 10,
@@ -3710,6 +3851,10 @@ const state = {
   panelState: 'docked',
   panelX: null, panelY: null,
   totalDuration: 0,
+  // v2.1: stage layout — 'line' (classic timeline-driven row) or 'ring'
+  // (continuous 3D orbit; bypasses the segment timeline).
+  layout: 'line',
+  ring: Object.assign({}, RING_DEFAULTS),
 };
 
 // Anchor table: tuned values for canonical icon counts. Auto values for any
@@ -3978,6 +4123,7 @@ function persist() {
     segmentPauses: state.segmentPauses,
     library: state.library, assignments: state.assignments,
     theme: state.theme, panelState: state.panelState, panelX: state.panelX, panelY: state.panelY,
+    layout: state.layout, ring: state.ring,
   };
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave)); } catch (e) {}
 }
@@ -4058,6 +4204,10 @@ function restore() {
       if (typeof state.segments[k].reverseOrder !== 'boolean') state.segments[k].reverseOrder = false;
     });
     if (!state.activeSegment || !SEGMENT_KEYS.includes(state.activeSegment)) state.activeSegment = 'logosIn';
+    // Saves predating v2.1 have no layout/ring; fill defaults and keep any
+    // saved ring keys forward-compatible by merging over the defaults.
+    if (state.layout !== 'ring') state.layout = 'line';
+    state.ring = Object.assign({}, RING_DEFAULTS, data.ring || {});
     if (typeof data.duration === 'number') {
       // Old format: copy top-level animation params into logosIn.
       const li = state.segments.logosIn;
@@ -4483,6 +4633,117 @@ function isOutSegment() {
   return state.activeSegment === 'logosOut' || state.activeSegment === 'a8cOut';
 }
 
+// ---- Ring layout engine (v2.1) ----
+// Slots orbit a tilted ellipse in canvas-px space; depth along the ellipse
+// drives scale, DoF blur, opacity, and stacking. Hover and click-ripple are
+// live-preview-only effects (not exported).
+let ringRAF = null, ringOrbs = [], ringHover = [], ringHoveredIdx = -1;
+let ringRipples = [], ringBaseAngle = 0, ringLastT = 0;
+const RING_RIPPLE_LIFE = 2.5; // seconds
+
+function stopRingLoop() {
+  if (ringRAF) { cancelAnimationFrame(ringRAF); ringRAF = null; }
+}
+
+function renderRingStage(iconRow) {
+  iconRow.style.gap = '0px';
+  ringOrbs = [];
+  ringHover = new Array(state.count).fill(0);
+  ringHoveredIdx = -1;
+  ringRipples = [];
+  for (let i = 0; i < state.count; i++) {
+    const slot = document.createElement('div');
+    slot.className = 'icon-slot';
+    slot.dataset.index = i;
+    const assigned = state.assignments[i];
+    const icon = assigned ? state.library.find(x => x.id === assigned) : null;
+    if (icon) {
+      slot.innerHTML = icon.svg;
+    } else {
+      slot.classList.add('empty');
+      slot.textContent = '+';
+    }
+    slot.addEventListener('pointerenter', () => { ringHoveredIdx = i; });
+    slot.addEventListener('pointerleave', () => { if (ringHoveredIdx === i) ringHoveredIdx = -1; });
+    slot.addEventListener('click', () => {
+      ringRipples.push({ origin: i, start: performance.now() });
+    });
+    iconRow.appendChild(slot);
+    ringOrbs.push(slot);
+  }
+  if (!ringRAF) {
+    ringLastT = performance.now();
+    ringRAF = requestAnimationFrame(ringFrame);
+  }
+}
+
+function ringFrame(t) {
+  if (state.layout !== 'ring' || !ringOrbs.length) { ringRAF = null; return; }
+  // Clamp dt so a backgrounded tab doesn't jump the ring on return.
+  const dt = Math.min(0.1, Math.max(0, (t - ringLastT) / 1000));
+  ringLastT = t;
+  const R = state.ring;
+  ringBaseAngle = (ringBaseAngle + R.speed * dt) % 360;
+  ringRipples = ringRipples.filter(r => (t - r.start) / 1000 <= RING_RIPPLE_LIFE);
+
+  const canvas = getCanvas();
+  const cx = canvas.w / 2, cy = canvas.h / 2;
+  const rx = (canvas.w / 2) * R.radius / 100;
+  const ry = rx * R.tilt / 100;
+  const a = R.angle * Math.PI / 180;
+  const cosA = Math.cos(a), sinA = Math.sin(a);
+  const frontSize = canvas.h * R.size / 100;
+  const blurScale = canvas.h / 1080; // blur slider is calibrated at 1080p
+  const hoverDir = R.hoverMode === 'grow' ? 1 : R.hoverMode === 'shrink' ? -1 : 0;
+  const ease = Math.min(1, dt * 10);
+  const n = ringOrbs.length;
+
+  for (let i = 0; i < n; i++) {
+    const th = (ringBaseAngle + i * 360 / n) * Math.PI / 180;
+    const ex = rx * Math.cos(th);
+    const ey = ry * Math.sin(th);
+    const d01 = (Math.sin(th) + 1) / 2; // 0 = back of ring, 1 = front
+    const x = cx + ex * cosA - ey * sinA;
+    const y = cy + ex * sinA + ey * cosA;
+
+    // Hover target falls off to ring neighbors (gaussian over ring distance).
+    let hoverTarget = 0;
+    if (ringHoveredIdx >= 0 && hoverDir !== 0) {
+      const raw = Math.abs(i - ringHoveredIdx);
+      const dist = Math.min(raw, n - raw);
+      const sigma = Math.max(0.45, R.hoverSpread);
+      hoverTarget = (R.hoverSpread === 0 && dist > 0)
+        ? 0
+        : Math.exp(-(dist * dist) / (2 * sigma * sigma));
+    }
+    ringHover[i] += (hoverTarget - ringHover[i]) * ease;
+
+    // Click ripple: gaussian bump travelling both ways around the ring.
+    let rip = 0;
+    for (const r of ringRipples) {
+      const age = (t - r.start) / 1000;
+      const raw = Math.abs(i - r.origin);
+      const dist = Math.min(raw, n - raw);
+      const dx = dist - age * R.ripSpeed;
+      rip += Math.exp(-(dx * dx) / 0.8) * (1 - age / RING_RIPPLE_LIFE);
+    }
+
+    const scale = (1 - (R.depth / 100) * (1 - d01))
+      * (1 + hoverDir * (R.hoverAmt / 100) * ringHover[i])
+      * (1 + (R.ripAmt / 100) * rip);
+    const size = frontSize * scale;
+    const blur = R.blur * (1 - d01) * blurScale;
+
+    const el = ringOrbs[i];
+    el.style.width = el.style.height = size.toFixed(1) + 'px';
+    el.style.transform = 'translate(' + (x - size / 2).toFixed(1) + 'px, ' + (y - size / 2).toFixed(1) + 'px)';
+    el.style.filter = blur > 0.1 ? 'blur(' + blur.toFixed(2) + 'px)' : 'none';
+    el.style.opacity = (1 - (R.fade / 100) * (1 - d01)).toFixed(3);
+    el.style.zIndex = Math.round(d01 * 1000);
+  }
+  ringRAF = requestAnimationFrame(ringFrame);
+}
+
 function renderStage(skipAnimation = false) {
   ensureAssignments();
   const stageInner = document.getElementById('stageInner');
@@ -4495,6 +4756,13 @@ function renderStage(skipAnimation = false) {
   }
   applyZoom();
   iconRow.innerHTML = '';
+
+  document.getElementById('app').dataset.layout = state.layout || 'line';
+  if (state.layout === 'ring') {
+    renderRingStage(iconRow);
+    return;
+  }
+  stopRingLoop();
 
   if (isA8cSegment()) {
     // A8C: use the wordmark's natural source-SVG spacing, not the icon Spacing
@@ -5781,7 +6049,34 @@ function formatValForKey(key, val) {
   return String(val);
 }
 
+// v2.1 — [element-id-suffix, state.ring key] pairs shared by binding and UI sync.
+const RING_SLIDER_MAP = [
+  ['ringradius', 'radius'], ['ringtilt', 'tilt'], ['ringangle', 'angle'],
+  ['ringspeed', 'speed'], ['ringsize', 'size'], ['ringdepth', 'depth'],
+  ['ringblur', 'blur'], ['ringfade', 'fade'],
+  ['ringhoveramt', 'hoverAmt'], ['ringhoverspread', 'hoverSpread'],
+  ['ringripamt', 'ripAmt'], ['ringripspeed', 'ripSpeed'],
+];
+
+function applyLayoutUI() {
+  document.getElementById('app').dataset.layout = state.layout || 'line';
+  // playSwitch lives outside .app, so the data-layout CSS can't reach it.
+  document.getElementById('playSwitch').style.display = state.layout === 'ring' ? 'none' : '';
+  document.getElementById('btn-layout-line').classList.toggle('active', state.layout !== 'ring');
+  document.getElementById('btn-layout-ring').classList.toggle('active', state.layout === 'ring');
+  ['grow', 'shrink', 'none'].forEach(m => {
+    document.getElementById('btn-hover-' + m).classList.toggle('active', state.ring.hoverMode === m);
+  });
+  RING_SLIDER_MAP.forEach(([id, key]) => {
+    const r = document.getElementById('r-' + id);
+    const v = document.getElementById('v-' + id);
+    if (r) r.value = state.ring[key];
+    if (v) v.value = state.ring[key];
+  });
+}
+
 function bindUIFromState() {
+  applyLayoutUI();
   document.getElementById('r-count').value = state.count;
   document.getElementById('v-count').value = state.count;
   // Sliders that participate in auto: write the underlying numeric value
@@ -6213,6 +6508,46 @@ function bindEvents() {
   // the whole set to that mode.
   document.getElementById('btn-overall-auto').onclick = () => setAllAuto(true);
   document.getElementById('btn-overall-custom').onclick = () => setAllAuto(false);
+
+  // v2.1 — Layout toggle + ring controls. Ring sliders write straight into
+  // state.ring; the rAF loop reads it live, so no renderStage needed on input.
+  const setLayout = (mode) => {
+    if (state.layout === mode) return;
+    state.layout = mode;
+    applyLayoutUI();
+    renderStage(true);
+    persist();
+  };
+  document.getElementById('btn-layout-line').onclick = () => setLayout('line');
+  document.getElementById('btn-layout-ring').onclick = () => setLayout('ring');
+  ['grow', 'shrink', 'none'].forEach(mode => {
+    document.getElementById('btn-hover-' + mode).onclick = () => {
+      state.ring.hoverMode = mode;
+      applyLayoutUI();
+      persist();
+    };
+  });
+  RING_SLIDER_MAP.forEach(([id, key]) => {
+    const r = document.getElementById('r-' + id);
+    const v = document.getElementById('v-' + id);
+    if (!r || !v) return;
+    r.oninput = () => {
+      state.ring[key] = +r.value;
+      v.value = r.value;
+      persist();
+    };
+    const commitRing = () => {
+      let nVal = parseFloat(v.value);
+      if (isNaN(nVal)) { v.value = state.ring[key]; return; }
+      nVal = Math.max(+r.min, Math.min(+r.max, nVal));
+      state.ring[key] = nVal;
+      r.value = nVal;
+      v.value = nVal;
+      persist();
+    };
+    v.addEventListener('blur', commitRing);
+    v.addEventListener('keydown', e => { if (e.key === 'Enter') { commitRing(); v.blur(); } });
+  });
 
   document.getElementById('bg-on').onclick = () => {
     state.bgOn = true;
