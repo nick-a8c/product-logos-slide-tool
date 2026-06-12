@@ -5812,12 +5812,14 @@ function fillBgCanvas(ctx, w, h) {
 // for the realtime WebM recorder at supersampled resolutions. The variant
 // canvas is enlarged by 3·blur per side so the gaussian tail isn't clipped.
 function getBlurredIconVariant(img, blurBmpPx) {
-  if (blurBmpPx < 0.5) return img;
   if (typeof document.createElement('canvas').getContext('2d').filter === 'undefined') return img;
-  // Quantize to 1/16 of the bitmap's inner size — a handful of levels per icon.
+  // Quantize to 1/128 of the bitmap's inner size (~0.8% of the drawn icon) so
+  // near-focus icons stay visually sharp. Level 0 = no blur at all — without
+  // it, every icon except the exact focal one got a heavy minimum blur.
   const innerPx = img.width / (img.padScale || 1);
-  const stepPx = Math.max(1, innerPx / 16);
-  const level = Math.max(1, Math.round(blurBmpPx / stepPx));
+  const stepPx = Math.max(0.5, innerPx / 128);
+  const level = Math.round(blurBmpPx / stepPx);
+  if (level === 0) return img;
   if (!img._blurCache) img._blurCache = {};
   if (img._blurCache[level]) return img._blurCache[level];
   const blur = level * stepPx;
