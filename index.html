@@ -1232,6 +1232,7 @@
   .app[data-layout="ring"] .section[data-segment],
   .app[data-layout="ring"] .ctrl[data-auto-key="spacing"],
   .app[data-layout="ring"] .ctrl[data-auto-key="scale"],
+  .app[data-layout="ring"] .row:has(#exportRange),
   .app[data-layout="ring"] .timeline { display: none; }
   /* Ring slots are positioned by the rAF loop in stage (canvas-px) space. */
   .app[data-layout="ring"] .icon-row {
@@ -5239,7 +5240,9 @@ async function exportMP4() {
 function getIconRenderSize(w, h) {
   const c = getCanvas();
   const s = Math.min(w / c.w, h / c.h);
-  return getSlotSize() * s;
+  // Ring icons size from the ring's front icon height, not the line slot size.
+  const base = state.layout === 'ring' ? (c.h * state.ring.size / 100) : getSlotSize();
+  return base * s;
 }
 // Same calc but using the A8C-specific slot size — feeds renderA8cLettersToImages.
 function getA8cRenderSize(w, h) {
@@ -5427,7 +5430,22 @@ function getPauseSecondsBetween(prevSeg, nextSeg) {
 }
 // Build { items: [{ seg, startMs, durMs, endMs }], totalMs } for the selected
 // segments, played back-to-back with user-configurable inter-segment pauses.
+// Ring exports cover exactly one revolution so the video loops seamlessly.
+// Speed 0 (static ring) exports a 4-second hold.
+function getRingLoopMs() {
+  const sp = state.ring.speed;
+  return sp > 0 ? Math.round((360 / sp) * 1000) : 4000;
+}
+// Frozen at export start so every drawRingFrame call is a pure function of
+// timeMs even while the live preview keeps advancing ringBaseAngle.
+let ringExportStartAngle = 0;
+
 function buildExportTimeline() {
+  if (state.layout === 'ring') {
+    ringExportStartAngle = ringBaseAngle;
+    const ms = getRingLoopMs();
+    return { items: [{ seg: 'ring', startMs: 0, durMs: ms, endMs: ms }], totalMs: ms };
+  }
   const selected = getSelectedSegmentsForExport();
   const items = [];
   let cursor = 0;
@@ -5500,6 +5518,7 @@ async function renderA8cLettersToImages(slotH) {
 // Per-segment frame renderer. Reads animation params from state.segments[seg],
 // picks icons vs letters, and applies in/out direction.
 function drawSegmentFrame(ctx, w, h, seg, localTMs, iconImages, a8cImages) {
+  if (seg === 'ring') { drawRingFrame(ctx, w, h, localTMs, iconImages); return; }
   const segObj = state.segments[seg];
   if (!segObj) return;
   const isA8c = isA8cSeg(seg);
@@ -5612,6 +5631,86 @@ function drawSequenceFrameSupersampled(ctx, w, h, timeline, globalTMs, iconImage
   drawSegmentFrameSupersampled(ctx, w, h, it.seg, localT, iconImages, a8cImages);
 }
 
+// Pre-blurred icon variants for the ring's DoF, built once per icon per
+// quantized blur level and cached on the bitmap. Blurring at draw time with
+// ctx.filter would re-run the gaussian on every frame of the export — too slow
+// for the realtime WebM recorder at supersampled resolutions. The variant
+// canvas is enlarged by 3·blur per side so the gaussian tail isn't clipped.
+function getBlurredIconVariant(img, blurBmpPx) {
+  if (blurBmpPx < 0.5) return img;
+  if (typeof document.createElement('canvas').getContext('2d').filter === 'undefined') return img;
+  // Quantize to 1/16 of the bitmap's inner size — a handful of levels per icon.
+  const innerPx = img.width / (img.padScale || 1);
+  const stepPx = Math.max(1, innerPx / 16);
+  const level = Math.max(1, Math.round(blurBmpPx / stepPx));
+  if (!img._blurCache) img._blurCache = {};
+  if (img._blurCache[level]) return img._blurCache[level];
+  const blur = level * stepPx;
+  const margin = Math.ceil(blur * 3);
+  const c = document.createElement('canvas');
+  c.width = img.width + margin * 2;
+  c.height = img.height + margin * 2;
+  const cx = c.getContext('2d');
+  cx.filter = 'blur(' + blur + 'px)';
+  cx.drawImage(img, margin, margin);
+  c.padScale = c.width / innerPx;
+  img._blurCache[level] = c;
+  return c;
+}
+
+// Deterministic ring frame for exports: same geometry as the live ringFrame
+// loop, but angle is a pure function of timeMs from the frozen export start
+// angle, and the interactive effects (hover, ripple) are omitted.
+function drawRingFrame(ctx, w, h, timeMs, iconImages) {
+  if (state.bgOn) { ctx.fillStyle = state.bgColor; ctx.fillRect(0, 0, w, h); }
+  else ctx.clearRect(0, 0, w, h);
+  const _c = getCanvas(); const stageW = _c.w, stageH = _c.h;
+  const s = Math.min(w / stageW, h / stageH);
+  const offsetX = (w - stageW * s) / 2;
+  const offsetY = (h - stageH * s) / 2;
+  const R = state.ring;
+  const cxStage = stageW / 2, cyStage = stageH / 2;
+  const rx = (stageW / 2) * R.radius / 100;
+  const ry = rx * R.tilt / 100;
+  const a = R.angle * Math.PI / 180;
+  const cosA = Math.cos(a), sinA = Math.sin(a);
+  const frontSize = stageH * R.size / 100;
+  const blurStageScale = stageH / 1080; // blur slider is calibrated at 1080p
+  const baseAngle = ringExportStartAngle + R.speed * (timeMs / 1000);
+  const n = state.count;
+
+  // Painter's order: back of the ring first so front icons overlap correctly.
+  const order = [];
+  for (let i = 0; i < n; i++) {
+    const th = (baseAngle + i * 360 / n) * Math.PI / 180;
+    order.push([i, (Math.sin(th) + 1) / 2, th]);
+  }
+  order.sort((p, q) => p[1] - q[1]);
+
+  for (const [i, d01, th] of order) {
+    const img = iconImages[i];
+    if (!img) continue;
+    const ex = rx * Math.cos(th);
+    const ey = ry * Math.sin(th);
+    const x = cxStage + ex * cosA - ey * sinA;
+    const y = cyStage + ex * sinA + ey * cosA;
+    const scale = 1 - (R.depth / 100) * (1 - d01);
+    const drawSize = frontSize * scale;                  // stage px
+    const blurOutPx = R.blur * (1 - d01) * blurStageScale * s; // output px
+    const innerPx = img.width / (img.padScale || 1);
+    const blurBmpPx = blurOutPx * (innerPx / (drawSize * s));
+    const variant = getBlurredIconVariant(img, blurBmpPx);
+    const padScale = variant.padScale || 1;
+    const destSize = drawSize * padScale;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, 1 - (R.fade / 100) * (1 - d01));
+    ctx.drawImage(variant,
+      offsetX + (x - destSize / 2) * s, offsetY + (y - destSize / 2) * s,
+      destSize * s, destSize * s);
+    ctx.restore();
+  }
+}
+
 function drawFrame(ctx, w, h, timeMs, iconImages) {
   if (state.bgOn) { ctx.fillStyle = state.bgColor; ctx.fillRect(0, 0, w, h); }
   else ctx.clearRect(0, 0, w, h);
@@ -5675,6 +5774,12 @@ function buildFilename(ext, extra) {
 }
 
 async function exportSVG() {
+  if (state.layout === 'ring') {
+    // The animated-SVG exporter builds CSS-keyframe slide-ins; the ring's
+    // continuous orbit + per-icon blur needs a different generator (future work).
+    showToast('Animated SVG export is not available in ring mode yet');
+    return;
+  }
   const [w, h] = state.resolution.split('x').map(Number);
   const _c = getCanvas(); const stageW = _c.w, stageH = _c.h;
   const s = Math.min(w / stageW, h / stageH);
