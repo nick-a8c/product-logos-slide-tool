@@ -1233,7 +1233,12 @@
   .app[data-layout="ring"] .ctrl[data-auto-key="spacing"],
   .app[data-layout="ring"] .ctrl[data-auto-key="scale"],
   .app[data-layout="ring"] .row:has(#exportRange),
+  .app[data-layout="ring"] #btn-copy-embed,
   .app[data-layout="ring"] .timeline { display: none; }
+  /* Interactive HTML export is a ring-mode feature (the line embed is the
+     CSS-keyframe Copy-embed-code path). */
+  #btn-export-html { display: none; }
+  .app[data-layout="ring"] #btn-export-html { display: block; }
   /* Ring slots are positioned by the rAF loop in stage (canvas-px) space. */
   .app[data-layout="ring"] .icon-row {
     inset: 0;
@@ -1861,6 +1866,7 @@
             <button class="btn primary full" id="btn-export-svg">↓ Export Animated SVG</button>
             <button class="btn primary full" id="btn-export-png">↓ Export PNG (Final Frame)</button>
             <button class="btn primary full" id="btn-copy-embed">⧉ Copy embed code</button>
+            <button class="btn primary full" id="btn-export-html">↓ Export Interactive HTML</button>
           </div>
           <p class="hint">WebM keeps transparency when background is off. MP4 is H.264 (works everywhere — Slack, P2, Twitter) but doesn't preserve transparency. Animated SVG is self-contained — paste it into HTML, P2, or anywhere SVG renders.</p>
         </div>
@@ -5975,6 +5981,118 @@ async function exportSVG() {
   showToast('SVG exported');
 }
 
+// Ring-mode "Export Interactive HTML": a self-contained file with the ring
+// engine inlined — orbit, DoF, hover (incl. spread), ripple, and the intro if
+// enabled. The ring sizes itself from its container, so the file works
+// full-page, in an iframe, or dropped into any fixed-size div. Honors
+// prefers-reduced-motion by parking the orbit on its settled state.
+function exportRingHTML() {
+  const R = state.ring;
+  let inner = '';
+  for (let i = 0; i < state.count; i++) {
+    const aid = state.assignments[i];
+    const icon = aid ? state.library.find(x => x.id === aid) : null;
+    if (!icon) continue;
+    inner += '<div class="orb" title="' + (icon.name || '') + '">' + icon.svg + '</div>';
+  }
+  const cfg = {
+    radius: R.radius, tilt: R.tilt, angle: R.angle, speed: R.speed,
+    size: R.size, depth: R.depth, blur: R.blur, fade: R.fade,
+    hoverMode: R.hoverMode, hoverAmt: R.hoverAmt, hoverSpread: R.hoverSpread,
+    ripAmt: R.ripAmt, ripSpeed: R.ripSpeed,
+    introOn: !!R.introOn, introMs: R.introMs, introStagger: R.introStagger,
+  };
+  const bg = state.bgOn ? 'background:' + getBgCSS() + ';' : '';
+  // The generated script avoids template literals so this outer template stays sane.
+  const engine = [
+    'var CFG = ' + JSON.stringify(cfg) + ';',
+    'var stage = document.getElementById("stage");',
+    'var orbs = Array.prototype.slice.call(stage.querySelectorAll(".orb"));',
+    'var n = orbs.length;',
+    'var reduced = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;',
+    'var hover = new Array(n).fill(0), hoveredIdx = -1, ripples = [];',
+    'var RIP_LIFE = 2.5, EASE_P1 = 0.28;',
+    'var baseAngle = 0, lastT = performance.now(), introT0 = performance.now();',
+    'function easeOut(p) { var u = 1 - p; return 1 - u * u * u; }',
+    'function introFactor(i, t) {',
+    '  if (!CFG.introOn || reduced) return 1;',
+    '  var p = (t - introT0 - i * CFG.introStagger) / CFG.introMs;',
+    '  return p >= 1 ? 1 : p <= 0 ? 0 : easeOut(p);',
+    '}',
+    'orbs.forEach(function (el, i) {',
+    '  el.addEventListener("pointerenter", function () { hoveredIdx = i; });',
+    '  el.addEventListener("pointerleave", function () { if (hoveredIdx === i) hoveredIdx = -1; });',
+    '  el.addEventListener("click", function () { ripples.push({ origin: i, start: performance.now() }); });',
+    '});',
+    'function frame(t) {',
+    '  var dt = Math.min(0.1, Math.max(0, (t - lastT) / 1000));',
+    '  lastT = t;',
+    '  if (!reduced) baseAngle = (baseAngle + CFG.speed * dt) % 360;',
+    '  ripples = ripples.filter(function (r) { return (t - r.start) / 1000 <= RIP_LIFE; });',
+    '  var cw = stage.clientWidth, ch = stage.clientHeight;',
+    '  var rx = (cw / 2) * CFG.radius / 100;',
+    '  var ry = rx * CFG.tilt / 100;',
+    '  var a = CFG.angle * Math.PI / 180;',
+    '  var cosA = Math.cos(a), sinA = Math.sin(a);',
+    '  var frontSize = ch * CFG.size / 100;',
+    '  var blurScale = ch / 1080;',
+    '  var hoverDir = CFG.hoverMode === "grow" ? 1 : CFG.hoverMode === "shrink" ? -1 : 0;',
+    '  var ease = Math.min(1, dt * 10);',
+    '  for (var i = 0; i < n; i++) {',
+    '    var th = (baseAngle + i * 360 / n) * Math.PI / 180;',
+    '    var ex = rx * Math.cos(th), ey = ry * Math.sin(th);',
+    '    var d01 = (Math.sin(th) + 1) / 2;',
+    '    var x = cw / 2 + ex * cosA - ey * sinA;',
+    '    var y = ch / 2 + ex * sinA + ey * cosA;',
+    '    var hoverTarget = 0;',
+    '    if (hoveredIdx >= 0 && hoverDir !== 0) {',
+    '      var hraw = Math.abs(i - hoveredIdx);',
+    '      var hdist = Math.min(hraw, n - hraw);',
+    '      var sigma = Math.max(0.45, CFG.hoverSpread);',
+    '      hoverTarget = (CFG.hoverSpread === 0 && hdist > 0) ? 0 : Math.exp(-(hdist * hdist) / (2 * sigma * sigma));',
+    '    }',
+    '    hover[i] += (hoverTarget - hover[i]) * ease;',
+    '    var rip = 0;',
+    '    for (var k = 0; k < ripples.length; k++) {',
+    '      var age = (t - ripples[k].start) / 1000;',
+    '      var rraw = Math.abs(i - ripples[k].origin);',
+    '      var rdist = Math.min(rraw, n - rraw);',
+    '      var dx = rdist - age * CFG.ripSpeed;',
+    '      rip += Math.exp(-(dx * dx) / 0.8) * (1 - age / RIP_LIFE);',
+    '    }',
+    '    var intro = introFactor(i, t);',
+    '    var scale = (1 - (CFG.depth / 100) * (1 - d01))',
+    '      * (1 + hoverDir * (CFG.hoverAmt / 100) * hover[i])',
+    '      * (1 + (CFG.ripAmt / 100) * rip)',
+    '      * intro;',
+    '    var size = frontSize * scale;',
+    '    var blur = CFG.blur * (1 - d01) * blurScale;',
+    '    var el = orbs[i];',
+    '    el.style.width = el.style.height = size.toFixed(1) + "px";',
+    '    el.style.transform = "translate(" + (x - size / 2).toFixed(1) + "px, " + (y - size / 2).toFixed(1) + "px)";',
+    '    el.style.filter = blur > 0.1 ? "blur(" + blur.toFixed(2) + "px)" : "none";',
+    '    el.style.opacity = ((1 - (CFG.fade / 100) * (1 - d01)) * intro).toFixed(3);',
+    '    el.style.zIndex = Math.round(d01 * 1000);',
+    '  }',
+    '  requestAnimationFrame(frame);',
+    '}',
+    'requestAnimationFrame(frame);',
+  ].join('\n');
+  const html = '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n'
+    + '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n'
+    + '<title>Product Logos Ring</title>\n'
+    + '<style>\n'
+    + 'html, body { margin: 0; height: 100%; }\n'
+    + '#stage { position: relative; width: 100%; height: 100%; overflow: hidden; ' + bg + ' }\n'
+    + '.orb { position: absolute; left: 0; top: 0; cursor: pointer; will-change: transform, filter, opacity; }\n'
+    + '.orb svg { width: 100%; height: 100%; display: block; pointer-events: none; }\n'
+    + '</style>\n</head>\n<body>\n'
+    + '<div id="stage">' + inner + '</div>\n'
+    + '<script>\n' + engine + '\n</' + 'script>\n</body>\n</html>\n';
+  downloadBlob(new Blob([html], { type: 'text/html' }), buildFilename('html'));
+  showToast('Interactive HTML exported');
+}
+
 async function copyEmbed() {
   const _c = getCanvas(); const stageW = _c.w, stageH = _c.h;
   const slotSize = getSlotSize();
@@ -6983,6 +7101,7 @@ function bindEvents() {
   document.getElementById('btn-export-png').onclick = exportPNG;
   document.getElementById('btn-export-gif').onclick = exportGIF;
   document.getElementById('btn-copy-embed').onclick = copyEmbed;
+  document.getElementById('btn-export-html').onclick = exportRingHTML;
 
   document.getElementById('btn-save-preset').onclick = savePreset;
   const presetInput = document.getElementById('presetInput');
