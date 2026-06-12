@@ -1247,6 +1247,9 @@
   }
   .layout-link-btn svg { display: block; }
   .layout-link-btn:not(.active) { opacity: 0.45; }
+  /* Drag-to-spin: stop touch panning from eating the gesture, hint grabbability. */
+  .app[data-layout="ring"] .stage-inner { touch-action: none; cursor: grab; }
+  .app[data-layout="ring"] .stage-inner:active { cursor: grabbing; }
   /* Ring slots are positioned by the rAF loop in stage (canvas-px) space. */
   .app[data-layout="ring"] .icon-row {
     inset: 0;
@@ -1514,6 +1517,28 @@
           <span class="chev">›</span>
         </div>
         <div class="section-body">
+          <div class="ctrl-row">
+            <span class="name">Drag Spin</span>
+            <div class="overall-buttons" id="ringDragButtons">
+              <button class="overall-btn active" id="btn-ringdrag-on" type="button">ON</button>
+              <button class="overall-btn" id="btn-ringdrag-off" type="button">OFF</button>
+            </div>
+          </div>
+          <div class="ctrl">
+            <label>Grip</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringgrip" min="10" max="180" step="1" value="60"></div>
+            <input type="text" class="val" id="v-ringgrip" value="60" data-min="10" data-max="180" data-step="1">
+          </div>
+          <div class="ctrl">
+            <label>Resistance</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringresist" min="1" max="20" step="0.5" value="5"></div>
+            <input type="text" class="val" id="v-ringresist" value="5" data-min="1" data-max="20" data-step="0.5">
+          </div>
+          <div class="ctrl">
+            <label>Weight</label>
+            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringweight" min="0" max="100" step="1" value="30"></div>
+            <input type="text" class="val" id="v-ringweight" value="30" data-min="0" data-max="100" data-step="1">
+          </div>
           <div class="ctrl-row">
             <span class="name">Hover</span>
             <div class="overall-buttons" id="hoverButtons">
@@ -3885,6 +3910,10 @@ const RING_DEFAULTS = {
   // Interaction off by default: no hover effect, ripple strength zero.
   hoverMode: 'none', hoverAmt: 35, hoverSpread: 0,
   ripAmt: 0, ripSpeed: 8,
+  // Drag-to-spin: grab the ring and fling it; friction decays the spin and
+  // blends back into the base auto-rotation. grip = degrees per 100px of
+  // drag, resist = decay rate, weight = drag smoothing/lag (heavier = lazier).
+  dragOn: true, dragGrip: 60, dragResist: 5, dragWeight: 30,
   // Intro: icons scale/fade in at their orbit positions, staggered around the
   // ring, while the orbit is already turning. Prepended to exports when on.
   introOn: false, introMs: 1200, introStagger: 40,
@@ -4753,6 +4782,13 @@ let ringRAF = null, ringOrbs = [], ringHover = [], ringHoveredIdx = -1;
 let ringRipples = [], ringBaseAngle = 0, ringLastT = 0, ringIntroT0 = 0;
 const RING_RIPPLE_LIFE = 2.5; // seconds
 const RING_INTRO_EASE = 'cubic-bezier(0.28, 0, 0, 1)'; // house easing
+// Drag-to-spin state. ringSpinVel (deg/s) is the smoothed grab velocity while
+// dragging and the fling velocity after release; null = normal auto-rotation.
+let ringDragActive = false, ringDragMoved = false, ringDragStartX = 0;
+let ringDragLastX = 0, ringDragLastT = 0, ringDragLastMoveT = 0;
+let ringDragInstV = 0, ringSpinVel = null;
+const RING_MAX_FLING = 720;   // deg/s cap so a violent flick doesn't strobe
+const RING_DRAG_THRESHOLD = 5; // px before a press counts as a drag, not a click
 
 function stopRingLoop() {
   if (ringRAF) { cancelAnimationFrame(ringRAF); ringRAF = null; }
@@ -4796,6 +4832,8 @@ function renderRingStage(iconRow) {
     slot.addEventListener('pointerenter', () => { ringHoveredIdx = i; });
     slot.addEventListener('pointerleave', () => { if (ringHoveredIdx === i) ringHoveredIdx = -1; });
     slot.addEventListener('click', () => {
+      // A drag that ends on an icon still fires click — only ripple on true clicks.
+      if (ringDragMoved) return;
       ringRipples.push({ origin: i, start: performance.now() });
     });
     iconRow.appendChild(slot);
@@ -4814,7 +4852,24 @@ function ringFrame(t) {
   const dt = Math.min(0.1, Math.max(0, (t - ringLastT) / 1000));
   ringLastT = t;
   const R = state.ring;
-  ringBaseAngle = (ringBaseAngle + R.speed * dt * (R.reverse ? -1 : 1)) % 360;
+  // Rotation: grabbed (smoothed pointer velocity) → flung (friction decay,
+  // blending back into auto-rotation) → auto.
+  if (ringDragActive && ringDragMoved && R.dragOn) {
+    if (t - ringDragLastMoveT > 80) ringDragInstV = 0; // pointer parked mid-hold
+    const k = 40 - 37 * (R.dragWeight / 100); // weight 0 → snappy, 100 → heavy
+    if (ringSpinVel === null) ringSpinVel = 0;
+    ringSpinVel += (ringDragInstV - ringSpinVel) * Math.min(1, dt * k);
+    ringSpinVel = Math.max(-RING_MAX_FLING, Math.min(RING_MAX_FLING, ringSpinVel));
+    ringBaseAngle += ringSpinVel * dt;
+  } else if (ringSpinVel !== null) {
+    ringSpinVel *= Math.exp(-R.dragResist * 0.5 * dt);
+    ringBaseAngle += ringSpinVel * dt;
+    const base = R.speed * (R.reverse ? -1 : 1);
+    if (Math.abs(ringSpinVel) <= Math.max(2, Math.abs(base))) ringSpinVel = null;
+  } else {
+    ringBaseAngle += R.speed * dt * (R.reverse ? -1 : 1);
+  }
+  ringBaseAngle %= 360;
   ringRipples = ringRipples.filter(r => (t - r.start) / 1000 <= RING_RIPPLE_LIFE);
 
   const canvas = getCanvas();
@@ -4838,8 +4893,9 @@ function ringFrame(t) {
     const y = cy + ex * sinA + ey * cosA;
 
     // Hover target falls off to ring neighbors (gaussian over ring distance).
+    // Suppressed mid-drag — the ring sliding under the pointer isn't a hover.
     let hoverTarget = 0;
-    if (ringHoveredIdx >= 0 && hoverDir !== 0) {
+    if (ringHoveredIdx >= 0 && hoverDir !== 0 && !ringDragActive) {
       const raw = Math.abs(i - ringHoveredIdx);
       const dist = Math.min(raw, n - raw);
       const sigma = Math.max(0.45, R.hoverSpread);
@@ -6054,6 +6110,7 @@ function exportRingHTML() {
     hoverMode: R.hoverMode, hoverAmt: R.hoverAmt, hoverSpread: R.hoverSpread,
     ripAmt: R.ripAmt, ripSpeed: R.ripSpeed,
     introOn: !!R.introOn, introMs: R.introMs, introStagger: R.introStagger,
+    dragOn: !!R.dragOn, dragGrip: R.dragGrip, dragResist: R.dragResist, dragWeight: R.dragWeight,
   };
   const bg = state.bgOn ? 'background:' + getBgCSS() + ';' : '';
   // The generated script avoids template literals so this outer template stays sane.
@@ -6075,12 +6132,48 @@ function exportRingHTML() {
     'orbs.forEach(function (el, i) {',
     '  el.addEventListener("pointerenter", function () { hoveredIdx = i; });',
     '  el.addEventListener("pointerleave", function () { if (hoveredIdx === i) hoveredIdx = -1; });',
-    '  el.addEventListener("click", function () { ripples.push({ origin: i, start: performance.now() }); });',
+    '  el.addEventListener("click", function () { if (dragMoved) return; ripples.push({ origin: i, start: performance.now() }); });',
+    '});',
+    'var dragActive = false, dragMoved = false, dragStartX = 0, dragLastX = 0;',
+    'var dragLastT = 0, dragLastMoveT = 0, dragInstV = 0, spinVel = null;',
+    'stage.addEventListener("pointerdown", function (e) {',
+    '  if (!CFG.dragOn) return;',
+    '  dragActive = true; dragMoved = false;',
+    '  dragStartX = dragLastX = e.clientX;',
+    '  dragLastT = dragLastMoveT = performance.now();',
+    '  dragInstV = 0;',
+    '});',
+    'window.addEventListener("pointermove", function (e) {',
+    '  if (!dragActive) return;',
+    '  var now = performance.now();',
+    '  if (Math.abs(e.clientX - dragStartX) > 5) dragMoved = true;',
+    '  var dtm = Math.max(1, now - dragLastT) / 1000;',
+    '  dragInstV = ((e.clientX - dragLastX) / dtm) * (CFG.dragGrip / 100);',
+    '  dragLastX = e.clientX; dragLastT = now; dragLastMoveT = now;',
+    '});',
+    'window.addEventListener("pointerup", function () {',
+    '  if (!dragActive) return;',
+    '  dragActive = false;',
+    '  if (dragMoved && spinVel !== null) spinVel = Math.max(-720, Math.min(720, spinVel));',
     '});',
     'function frame(t) {',
     '  var dt = Math.min(0.1, Math.max(0, (t - lastT) / 1000));',
     '  lastT = t;',
-    '  if (!reduced) baseAngle = (baseAngle + CFG.speed * dt * (CFG.reverse ? -1 : 1)) % 360;',
+    '  if (dragActive && dragMoved && CFG.dragOn) {',
+    '    if (t - dragLastMoveT > 80) dragInstV = 0;',
+    '    var kk = 40 - 37 * (CFG.dragWeight / 100);',
+    '    if (spinVel === null) spinVel = 0;',
+    '    spinVel += (dragInstV - spinVel) * Math.min(1, dt * kk);',
+    '    spinVel = Math.max(-720, Math.min(720, spinVel));',
+    '    baseAngle = (baseAngle + spinVel * dt) % 360;',
+    '  } else if (spinVel !== null) {',
+    '    spinVel *= Math.exp(-CFG.dragResist * 0.5 * dt);',
+    '    baseAngle = (baseAngle + spinVel * dt) % 360;',
+    '    var baseSp = CFG.speed * (CFG.reverse ? -1 : 1);',
+    '    if (Math.abs(spinVel) <= Math.max(2, Math.abs(baseSp))) spinVel = null;',
+    '  } else if (!reduced) {',
+    '    baseAngle = (baseAngle + CFG.speed * dt * (CFG.reverse ? -1 : 1)) % 360;',
+    '  }',
     '  ripples = ripples.filter(function (r) { return (t - r.start) / 1000 <= RIP_LIFE; });',
     '  var cw = stage.clientWidth, ch = stage.clientHeight;',
     '  var rx = (cw / 2) * CFG.radius / 100;',
@@ -6098,7 +6191,7 @@ function exportRingHTML() {
     '    var x = cw / 2 + ex * cosA - ey * sinA;',
     '    var y = ch / 2 + ex * sinA + ey * cosA;',
     '    var hoverTarget = 0;',
-    '    if (hoveredIdx >= 0 && hoverDir !== 0) {',
+    '    if (hoveredIdx >= 0 && hoverDir !== 0 && !dragActive) {',
     '      var hraw = Math.abs(i - hoveredIdx);',
     '      var hdist = Math.min(hraw, n - hraw);',
     '      var sigma = Math.max(0.45, CFG.hoverSpread);',
@@ -6136,7 +6229,8 @@ function exportRingHTML() {
     + '<title>Product Logos Ring</title>\n'
     + '<style>\n'
     + 'html, body { margin: 0; height: 100%; }\n'
-    + '#stage { position: relative; width: 100%; height: 100%; overflow: hidden; ' + bg + ' }\n'
+    + '#stage { position: relative; width: 100%; height: 100%; overflow: hidden; touch-action: none; cursor: grab; ' + bg + ' }\n'
+    + '#stage:active { cursor: grabbing; }\n'
     + '.orb { position: absolute; left: 0; top: 0; cursor: pointer; will-change: transform, filter, opacity; }\n'
     + '.orb svg { width: 100%; height: 100%; display: block; pointer-events: none; }\n'
     + '</style>\n</head>\n<body>\n'
@@ -6472,6 +6566,7 @@ const RING_SLIDER_MAP = [
   ['ringhoveramt', 'hoverAmt'], ['ringhoverspread', 'hoverSpread'],
   ['ringripamt', 'ripAmt'], ['ringripspeed', 'ripSpeed'],
   ['ringintroms', 'introMs'], ['ringintrostagger', 'introStagger'],
+  ['ringgrip', 'dragGrip'], ['ringresist', 'dragResist'], ['ringweight', 'dragWeight'],
 ];
 
 // v2.1 — the settings both layouts have in common. Everything else (ring
@@ -6534,6 +6629,8 @@ function applyLayoutUI() {
   document.getElementById('btn-ringintro-off').classList.toggle('active', !state.ring.introOn);
   document.getElementById('btn-ringdir-fwd').classList.toggle('active', !state.ring.reverse);
   document.getElementById('btn-ringdir-rev').classList.toggle('active', !!state.ring.reverse);
+  document.getElementById('btn-ringdrag-on').classList.toggle('active', !!state.ring.dragOn);
+  document.getElementById('btn-ringdrag-off').classList.toggle('active', !state.ring.dragOn);
   updateRingExportLockUI();
   RING_SLIDER_MAP.forEach(([id, key]) => {
     const r = document.getElementById('r-' + id);
@@ -7018,6 +7115,43 @@ function bindEvents() {
   ['fwd', 'rev'].forEach(dir => {
     document.getElementById('btn-ringdir-' + dir).onclick = () => {
       state.ring.reverse = dir === 'rev';
+      applyLayoutUI();
+      persist();
+    };
+  });
+  // Drag-to-spin: grab anywhere on the stage. Velocity is sampled per move
+  // event; the frame loop smooths it (Weight) and decays it after release
+  // (Resistance). A press that never crosses the threshold stays a click.
+  document.getElementById('stageInner').addEventListener('pointerdown', (e) => {
+    if (state.layout !== 'ring' || !state.ring.dragOn) return;
+    ringDragActive = true;
+    ringDragMoved = false;
+    ringDragStartX = e.clientX;
+    ringDragLastX = e.clientX;
+    ringDragLastT = performance.now();
+    ringDragLastMoveT = performance.now();
+    ringDragInstV = 0;
+  });
+  window.addEventListener('pointermove', (e) => {
+    if (!ringDragActive) return;
+    const now = performance.now();
+    if (Math.abs(e.clientX - ringDragStartX) > RING_DRAG_THRESHOLD) ringDragMoved = true;
+    const dtm = Math.max(1, now - ringDragLastT) / 1000;
+    ringDragInstV = ((e.clientX - ringDragLastX) / dtm) * (state.ring.dragGrip / 100);
+    ringDragLastX = e.clientX;
+    ringDragLastT = now;
+    ringDragLastMoveT = now;
+  });
+  window.addEventListener('pointerup', () => {
+    if (!ringDragActive) return;
+    ringDragActive = false;
+    if (ringDragMoved && ringSpinVel !== null) {
+      ringSpinVel = Math.max(-RING_MAX_FLING, Math.min(RING_MAX_FLING, ringSpinVel));
+    }
+  });
+  ['on', 'off'].forEach(mode => {
+    document.getElementById('btn-ringdrag-' + mode).onclick = () => {
+      state.ring.dragOn = mode === 'on';
       applyLayoutUI();
       persist();
     };
