@@ -13,6 +13,7 @@
     --panel-bg: #ffffff;
     --panel-shadow: 0 8px 32px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04);
     --section-border: #ececee;
+    --section-header-bg: #f5f8ff;
     --text: #1d1d1f;
     --text-secondary: #6e6e73;
     --text-tertiary: #8e8e93;
@@ -45,6 +46,7 @@
     --panel-bg: #1c1c1e;
     --panel-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.2);
     --section-border: #2a2a2e;
+    --section-header-bg: #1f232b;
     --text: #f5f5f7;
     --text-secondary: #98989f;
     --text-tertiary: #6e6e73;
@@ -409,11 +411,11 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 18px 22px 14px;
+    padding: 12px 22px;
     cursor: pointer;
     user-select: none;
+    background: var(--section-header-bg);
   }
-  .section.open .section-header { padding-bottom: 8px; }
   .section-header h2 {
     font-size: 11px;
     font-weight: 500;
@@ -448,6 +450,8 @@
     color: var(--text);
     font-weight: 400;
   }
+  /* Ring AUTO: shape sliders are grayed but still draggable (dragging flips to CUSTOM). */
+  .ctrl.ring-locked { opacity: 0.4; }
 
   /* Label cell with auto/custom toggle.
      Layered: the label text and the auto-toggle button overlap.
@@ -1227,7 +1231,6 @@
      segment panels, A8C, auto/custom control, spacing/scale) hides in ring mode. */
   .section[data-ring-only] { display: none; }
   .app[data-layout="ring"] .section[data-ring-only] { display: block; }
-  .app[data-layout="ring"] .section[data-section="control"],
   .app[data-layout="ring"] .section[data-section="a8c"],
   .app[data-layout="ring"] .section[data-segment],
   .app[data-layout="ring"] .ctrl[data-auto-key="spacing"],
@@ -3917,7 +3920,28 @@ const RING_DEFAULTS = {
   // Intro: icons scale/fade in at their orbit positions, staggered around the
   // ring, while the orbit is already turning. Prepended to exports when on.
   introOn: false, introMs: 1200, introStagger: 40,
+  // Overall Control for ring: true = the four aspect-driven params (radius, tilt,
+  // angle, size) follow RING_AUTO_BY_ASPECT and re-snap on aspect change; false =
+  // user-controlled. Touching one of those four sliders flips this to false.
+  auto: true,
 };
+
+// Ring "Auto" presets keyed by aspect ratio. Only the four shape params that
+// need to change per aspect live here; everything else stays at RING_DEFAULTS.
+const RING_AUTO_KEYS = ['radius', 'tilt', 'angle', 'size'];
+const RING_AUTO_BY_ASPECT = {
+  '16:9': { radius: 65, tilt: 32, angle: -18, size: 12 },
+  '21:9': { radius: 48, tilt: 32, angle: -18, size: 12 },
+  '4:3':  { radius: 60, tilt: 32, angle: -18, size: 9  },
+  '9:16': { radius: 95, tilt: 35, angle: -60, size: 7  },
+  '4:5':  { radius: 89, tilt: 30, angle: -60, size: 7  },
+  '1:1':  { radius: 60, tilt: 32, angle: -18, size: 9  },
+};
+// Sliders locked + grayed while ring AUTO is on. Superset of the aspect keys:
+// Speed is auto-locked too (it just stays at the RING_DEFAULTS value, not
+// aspect-dependent). Dragging any of these flips ring to CUSTOM.
+const RING_LOCK_KEYS = ['radius', 'tilt', 'angle', 'speed', 'size'];
+const RING_LOCK_SLIDER_IDS = ['r-ringradius', 'r-ringtilt', 'r-ringangle', 'r-ringspeed', 'r-ringsize'];
 // Ring "Load defaults" also resets these stage-level values (the line preset
 // leaves them untouched, matching its historical behavior).
 const RING_STAGE_DEFAULTS = { count: 25, stageZoom: 48, bgOn: true, bgMode: 'solid', bgColor: '#ffffff' };
@@ -4592,6 +4616,8 @@ function wait(ms) { return new Promise(r => setTimeout(r, Math.max(0, ms))); }
 function applyAspectRatio(ar) {
   if (!ASPECT_RATIOS[ar]) return;
   state.aspectRatio = ar;
+  // Ring in AUTO: re-derive radius/tilt/angle/size for the new aspect.
+  if (state.ring && state.ring.auto) applyRingAutoFromAspect();
   // Update active button
   document.querySelectorAll('#aspectSwitch button').forEach(b => {
     b.classList.toggle('active', b.dataset.ar === ar);
@@ -4633,6 +4659,51 @@ function applyCountLimitForAspect() {
   bindUIFromState();
 }
 
+// Ring "Auto" mode: write the four aspect-driven params from the table for the
+// current aspect ratio. No-op for aspects missing from the table (falls back to 16:9).
+function applyRingAutoFromAspect() {
+  const tbl = RING_AUTO_BY_ASPECT[state.aspectRatio] || RING_AUTO_BY_ASPECT['16:9'];
+  RING_AUTO_KEYS.forEach(k => { state.ring[k] = tbl[k]; });
+}
+
+// Non-destructive AUTO: entering AUTO from CUSTOM stashes the user's playground
+// and shows clean defaults+aspect values. If they bounce back to CUSTOM without
+// touching anything, the stash is restored. The first time they fiddle with any
+// ring control in AUTO, the stash is burned (ringAutoPristine → false) and CUSTOM
+// keeps the new values instead. Session-only (not persisted across reload).
+let ringCustomStash = null;
+let ringAutoPristine = false;
+
+// Called by every ring-control mutation. While AUTO is pristine, the first edit
+// commits — the stashed CUSTOM playground can no longer be restored.
+function markRingFiddled() {
+  if (state.ring.auto) ringAutoPristine = false;
+}
+
+// Overall Control AUTO/CUSTOM switch for ring (mirrors setAllAuto for line).
+function setRingAuto(on) {
+  if (on) {
+    if (!state.ring.auto) {
+      // Entering AUTO from CUSTOM: stash the playground, reset to defaults+aspect.
+      ringCustomStash = Object.assign({}, state.ring);
+      ringAutoPristine = true;
+    }
+    state.ring = Object.assign({}, RING_DEFAULTS);
+    state.ring.auto = true;
+    applyRingAutoFromAspect();
+  } else {
+    // CUSTOM: restore the stash only if AUTO was never touched.
+    if (ringAutoPristine && ringCustomStash) {
+      state.ring = Object.assign({}, ringCustomStash);
+    }
+    state.ring.auto = false;
+    ringAutoPristine = false;
+  }
+  bindUIFromState();
+  renderStage();
+  persist();
+}
+
 function loadDefaults() {
   // Use stable IDs ('01'..'25') from DEFAULT_ICONS so DEFAULT_LAYOUTS can
   // reference them by ID. User-uploaded icons still get random IDs from uid().
@@ -4642,6 +4713,8 @@ function loadDefaults() {
   if (state.layout === 'ring') {
     Object.assign(state, RING_STAGE_DEFAULTS);
     state.ring = Object.assign({}, RING_DEFAULTS);
+    // AUTO ring: snap the four shape params to the current aspect's preset.
+    if (state.ring.auto) applyRingAutoFromAspect();
   } else {
     // Default count is 15 — matches the curated 15-icon layout.
     state.count = 15;
@@ -6148,7 +6221,7 @@ function exportRingHTML() {
     '  var now = performance.now();',
     '  if (Math.abs(e.clientX - dragStartX) > 5) dragMoved = true;',
     '  var dtm = Math.max(1, now - dragLastT) / 1000;',
-    '  dragInstV = ((e.clientX - dragLastX) / dtm) * (CFG.dragGrip / 100);',
+    '  dragInstV = ((dragLastX - e.clientX) / dtm) * (CFG.dragGrip / 100);',
     '  dragLastX = e.clientX; dragLastT = now; dragLastMoveT = now;',
     '});',
     'window.addEventListener("pointerup", function () {',
@@ -6638,6 +6711,16 @@ function applyLayoutUI() {
     if (r) r.value = state.ring[key];
     if (v) v.value = state.ring[key];
   });
+  applyRingAutoLockUI();
+}
+
+// Gray out (but keep draggable) the auto-locked shape sliders while ring AUTO is on.
+function applyRingAutoLockUI() {
+  const locked = state.layout === 'ring' && !!state.ring.auto;
+  RING_LOCK_SLIDER_IDS.forEach(id => {
+    const ctrl = document.getElementById(id)?.closest('.ctrl');
+    if (ctrl) ctrl.classList.toggle('ring-locked', locked);
+  });
 }
 
 function bindUIFromState() {
@@ -6837,6 +6920,13 @@ function applyOverallButtonsUI() {
   const autoBtn = document.getElementById('btn-overall-auto');
   const customBtn = document.getElementById('btn-overall-custom');
   if (!wrap || !autoBtn || !customBtn) return;
+  // Ring uses a single auto flag (no per-key "mixed" state).
+  if (state.layout === 'ring') {
+    wrap.classList.remove('mixed');
+    autoBtn.classList.toggle('active', !!state.ring.auto);
+    customBtn.classList.toggle('active', !state.ring.auto);
+    return;
+  }
   const s = getOverallState();
   wrap.classList.toggle('mixed', s === 'mixed');
   autoBtn.classList.toggle('active', s === 'all-auto');
@@ -7072,8 +7162,10 @@ function bindEvents() {
   // Global "Overall Control" buttons — flip every Overall key at once.
   // When the buttons are in the "mixed" state, clicking either one snaps
   // the whole set to that mode.
-  document.getElementById('btn-overall-auto').onclick = () => setAllAuto(true);
-  document.getElementById('btn-overall-custom').onclick = () => setAllAuto(false);
+  document.getElementById('btn-overall-auto').onclick = () =>
+    state.layout === 'ring' ? setRingAuto(true) : setAllAuto(true);
+  document.getElementById('btn-overall-custom').onclick = () =>
+    state.layout === 'ring' ? setRingAuto(false) : setAllAuto(false);
 
   // v2.1 — Layout toggle + ring controls. Ring sliders write straight into
   // state.ring; the rAF loop reads it live, so no renderStage needed on input.
@@ -7107,6 +7199,7 @@ function bindEvents() {
   };
   ['grow', 'shrink', 'none'].forEach(mode => {
     document.getElementById('btn-hover-' + mode).onclick = () => {
+      markRingFiddled();
       state.ring.hoverMode = mode;
       applyLayoutUI();
       persist();
@@ -7114,6 +7207,7 @@ function bindEvents() {
   });
   ['fwd', 'rev'].forEach(dir => {
     document.getElementById('btn-ringdir-' + dir).onclick = () => {
+      markRingFiddled();
       state.ring.reverse = dir === 'rev';
       applyLayoutUI();
       persist();
@@ -7137,7 +7231,7 @@ function bindEvents() {
     const now = performance.now();
     if (Math.abs(e.clientX - ringDragStartX) > RING_DRAG_THRESHOLD) ringDragMoved = true;
     const dtm = Math.max(1, now - ringDragLastT) / 1000;
-    ringDragInstV = ((e.clientX - ringDragLastX) / dtm) * (state.ring.dragGrip / 100);
+    ringDragInstV = ((ringDragLastX - e.clientX) / dtm) * (state.ring.dragGrip / 100);
     ringDragLastX = e.clientX;
     ringDragLastT = now;
     ringDragLastMoveT = now;
@@ -7151,6 +7245,7 @@ function bindEvents() {
   });
   ['on', 'off'].forEach(mode => {
     document.getElementById('btn-ringdrag-' + mode).onclick = () => {
+      markRingFiddled();
       state.ring.dragOn = mode === 'on';
       applyLayoutUI();
       persist();
@@ -7158,12 +7253,14 @@ function bindEvents() {
   });
   // Intro toggle — turning it on rebuilds the ring so the intro replays.
   document.getElementById('btn-ringintro-on').onclick = () => {
+    markRingFiddled();
     state.ring.introOn = true;
     applyLayoutUI();
     renderStage(true);
     persist();
   };
   document.getElementById('btn-ringintro-off').onclick = () => {
+    markRingFiddled();
     state.ring.introOn = false;
     applyLayoutUI();
     persist();
@@ -7173,6 +7270,13 @@ function bindEvents() {
     const v = document.getElementById('v-' + id);
     if (!r || !v) return;
     r.oninput = () => {
+      markRingFiddled();
+      // Touching a locked slider while in AUTO drops ring into CUSTOM.
+      if (state.ring.auto && RING_LOCK_KEYS.includes(key)) {
+        state.ring.auto = false;
+        applyOverallButtonsUI();
+        applyRingAutoLockUI();
+      }
       state.ring[key] = +r.value;
       v.value = r.value;
       if (key === 'speed') updateRingExportLockUI();
@@ -7182,6 +7286,12 @@ function bindEvents() {
       let nVal = parseFloat(v.value);
       if (isNaN(nVal)) { v.value = state.ring[key]; return; }
       nVal = Math.max(+r.min, Math.min(+r.max, nVal));
+      markRingFiddled();
+      if (state.ring.auto && RING_LOCK_KEYS.includes(key)) {
+        state.ring.auto = false;
+        applyOverallButtonsUI();
+        applyRingAutoLockUI();
+      }
       state.ring[key] = nVal;
       r.value = nVal;
       v.value = nVal;
