@@ -4003,7 +4003,7 @@ const state = {
   // Link toggle between LINE/RING: when true, the settings both layouts share
   // (icon count, zoom, background) stay mirrored. When false, each layout
   // keeps its own copy in layoutShared and they swap on layout switch.
-  layoutLink: true,
+  layoutLink: false,
   layoutShared: { line: null, ring: null },
 };
 
@@ -4360,7 +4360,7 @@ function restore() {
     // saved ring keys forward-compatible by merging over the defaults.
     if (state.layout !== 'ring') state.layout = 'line';
     state.ring = Object.assign({}, RING_DEFAULTS, data.ring || {});
-    if (typeof state.layoutLink !== 'boolean') state.layoutLink = true;
+    if (typeof state.layoutLink !== 'boolean') state.layoutLink = false;
     if (!state.layoutShared || typeof state.layoutShared !== 'object') {
       state.layoutShared = { line: null, ring: null };
     }
