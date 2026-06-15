@@ -14,6 +14,7 @@
     --panel-shadow: 0 8px 32px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04);
     --section-border: #ececee;
     --section-header-bg: #f5f8ff;
+    --speed-hl-bg: #ece9ff;
     --text: #1d1d1f;
     --text-secondary: #6e6e73;
     --text-tertiary: #8e8e93;
@@ -47,6 +48,7 @@
     --panel-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.2);
     --section-border: #2a2a2e;
     --section-header-bg: #1f232b;
+    --speed-hl-bg: #36304f;
     --text: #f5f5f7;
     --text-secondary: #98989f;
     --text-tertiary: #6e6e73;
@@ -452,6 +454,10 @@
   }
   /* Ring AUTO: shape sliders are grayed but still draggable (dragging flips to CUSTOM). */
   .ctrl.ring-locked { opacity: 0.4; }
+  /* Speed highlight — purple pill behind the label so it stands out as the
+     control that governs the animation you pause/scrub for still exports. */
+  .ctrl.speed-hl label,
+  .ctrl.speed-hl > .ctrl-label { background: var(--speed-hl-bg); border-radius: 6px; padding: 3px 9px; margin: -3px -9px; width: fit-content; }
 
   /* Label cell with auto/custom toggle.
      Layered: the label text and the auto-toggle button overlap.
@@ -900,6 +906,23 @@
     gap: 8px;
     margin-top: 12px;
   }
+  /* Sub-group label inside the export stack (EXPORT MOTION / EXPORT STILLS) */
+  .export-group {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin: 8px 0 2px;
+  }
+  .export-group:first-child { margin-top: 0; }
+  /* PNG + SVG side by side */
+  .still-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .still-row .btn { width: 100%; }
+  /* Pause/scrub toggle — distinct dark pill so it reads as a mode, not an export. */
+  .pause-btn { background: #1f2a44; color: #fff; border-color: #1f2a44; }
+  .pause-btn:hover { background: #28344f; border-color: #28344f; }
+  .pause-btn.active { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
 
   /* Modal */
   .modal-bg {
@@ -1253,6 +1276,8 @@
   /* Drag-to-spin: stop touch panning from eating the gesture, hint grabbability. */
   .app[data-layout="ring"] .stage-inner { touch-action: none; cursor: grab; }
   .app[data-layout="ring"] .stage-inner:active { cursor: grabbing; }
+  /* While paused, the stage scrubs on wheel/drag — hint with a horizontal cursor. */
+  .app.scrub-paused .stage-inner { cursor: ew-resize; touch-action: none; }
   /* Ring slots are positioned by the rAF loop in stage (canvas-px) space. */
   .app[data-layout="ring"] .icon-row {
     inset: 0;
@@ -1462,7 +1487,7 @@
             <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringangle" min="-90" max="90" step="1" value="-18"></div>
             <input type="text" class="val" id="v-ringangle" value="-18" data-min="-90" data-max="90" data-step="1">
           </div>
-          <div class="ctrl">
+          <div class="ctrl speed-hl">
             <label>Speed</label>
             <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringspeed" min="0" max="60" step="1" value="3"></div>
             <input type="text" class="val" id="v-ringspeed" value="3" data-min="0" data-max="60" data-step="1">
@@ -1565,6 +1590,7 @@
             <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringripamt" min="0" max="100" step="1" value="50"></div>
             <input type="text" class="val" id="v-ringripamt" value="50" data-min="0" data-max="100" data-step="1">
           </div>
+          <p class="hint">Hold <b>Shift</b> and click an icon to preview the ripple. A plain click changes the icon.</p>
           <div class="ctrl">
             <label>Ripple Speed</label>
             <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringripspeed" min="1" max="20" step="0.5" value="8"></div>
@@ -1899,6 +1925,14 @@
             </select>
           </div>
           <div class="row">
+            <label>Quality</label>
+            <select id="s-quality">
+              <option value="web">Web (small)</option>
+              <option value="high" selected>High</option>
+              <option value="max">Max (lossless)</option>
+            </select>
+          </div>
+          <div class="row">
             <label>Segments</label>
             <div class="seg-toggle" id="exportRange">
               <button type="button" data-range="1">1</button>
@@ -1909,16 +1943,22 @@
             </div>
           </div>
           <div class="button-stack">
+            <p class="export-group">Export Motion</p>
             <button class="btn primary full" id="btn-export-webm">↓ Export WebM</button>
             <button class="btn primary full" id="btn-export-mp4">↓ Export MP4</button>
-            <button class="btn primary full" id="btn-export-gif">↓ Export GIF</button>
-            <button class="btn primary full" id="btn-export-svg">↓ Export Animated SVG</button>
-            <button class="btn primary full" id="btn-export-png">↓ Export PNG (Final Frame)</button>
             <button class="btn primary full" id="btn-copy-embed">⧉ Copy embed code</button>
             <button class="btn primary full" id="btn-export-html">↓ Export Interactive HTML</button>
             <p class="hint" id="ringSpeedNote" style="display:none">Video length is one full revolution (360 ÷ speed). Speed up your loop to at least 7 to render video.</p>
+
+            <p class="export-group">Export Stills</p>
+            <button class="btn full pause-btn" id="btn-pause-anim">⏸ Pause Animation</button>
+            <div class="still-row">
+              <button class="btn primary" id="btn-export-png">↓ Export PNG</button>
+              <button class="btn primary" id="btn-export-svg">↓ Export SVG</button>
+            </div>
+            <p class="hint" id="stillsNote">To grab a specific frame: hit <b>Pause Animation</b>, then scroll the mouse wheel or click-drag across the stage to land on the exact frame, and export PNG or SVG.</p>
           </div>
-          <p class="hint">WebM keeps transparency when background is off. MP4 is H.264 (works everywhere — Slack, P2, Twitter) but doesn't preserve transparency. Animated SVG is self-contained — paste it into HTML, P2, or anywhere SVG renders.</p>
+          <p class="hint">WebM keeps transparency when background is off. MP4 is H.264 (works everywhere — Slack, P2, Twitter) but doesn't preserve transparency.</p>
         </div>
       </div>
 
@@ -3983,6 +4023,8 @@ const state = {
   // First-load default = Large (3840×2160 for 16:9). populateResolutionDropdown
   // will keep this selected on boot; switching aspect re-snaps to that ratio's standard.
   resolution: '3840x2160', fps: 60,
+  // Video export quality preset (MP4 + WebM): 'web' | 'high' | 'max'. See QUALITY_PRESETS.
+  videoQuality: 'high',
   // Which segment(s) the exporters render: '1'/'2'/'3'/'4' = a single segment
   // (logosIn/logosOut/a8cIn/a8cOut respectively), 'all' = the full 4-segment sequence.
   exportRange: 'all',
@@ -4113,12 +4155,18 @@ function getMaxCountForAspect(ar) {
     ? COUNT_LIMIT_RESTRICTED : COUNT_LIMIT_DEFAULT;
 }
 
-// Per-format quality knobs — always the maximum fidelity tier:
-// every frame is a keyframe (no inter-frame loss), full-res GIF, rgb565 palette.
-const EXPORT_QUALITY = {
-  videoBpp: 1.00, gifMaxW: 1920, gifColors: 256, gifKsize: 'rgb565', keyframeIntervalSec: 0,
+// Video (MP4 + WebM) quality presets. videoBpp scales the target bitrate by
+// pixels × fps; keyframeIntervalSec controls inter-frame compression in the
+// MP4 encoder (0 = every frame a keyframe = visually lossless but huge; >0 =
+// normal GOP so the H.264 encoder can use P-frames, shrinking files ~20-70×).
+const QUALITY_PRESETS = {
+  web:  { label: 'Web (small)',    videoBpp: 0.010, keyframeIntervalSec: 2 },
+  high: { label: 'High',           videoBpp: 0.030, keyframeIntervalSec: 2 },
+  max:  { label: 'Max (lossless)', videoBpp: 1.000, keyframeIntervalSec: 0 },
 };
-function getQuality() { return EXPORT_QUALITY; }
+function getQuality() {
+  return Object.assign({}, QUALITY_PRESETS[state.videoQuality] || QUALITY_PRESETS.high);
+}
 
 const DEFAULT_ICONS = [
   { id: '01', name: "Tumblr", svg: `<svg width="54" height="54" viewBox="0 0 54 54" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="53.2954" height="53.2954" rx="26.6477" fill="black"/><path fill-rule="evenodd" clip-rule="evenodd" d="M28.7449 32.6012C28.7449 35.0041 29.9574 35.8368 31.8865 35.8368H34.624V41.9443H29.4411C24.7712 41.9443 21.2933 39.5414 21.2933 33.7907V24.587H17.0547V19.601C21.7213 18.3877 23.6742 14.3704 23.8983 10.8867H28.7449V18.7922H34.3998V24.587H28.7449V32.6012Z" fill="white"/></svg>` },
@@ -4270,7 +4318,7 @@ function persist() {
     auto: state.auto,
     activeSegment: state.activeSegment, segments: state.segments,
     aspectRatio: state.aspectRatio,
-    resolution: state.resolution, fps: state.fps, exportRange: state.exportRange,
+    resolution: state.resolution, fps: state.fps, videoQuality: state.videoQuality, exportRange: state.exportRange,
     segmentPauses: state.segmentPauses,
     library: state.library, assignments: state.assignments,
     theme: state.theme, panelState: state.panelState, panelX: state.panelX, panelY: state.panelY,
@@ -4361,6 +4409,8 @@ function restore() {
     if (state.layout !== 'ring') state.layout = 'line';
     state.ring = Object.assign({}, RING_DEFAULTS, data.ring || {});
     if (typeof state.layoutLink !== 'boolean') state.layoutLink = false;
+    // Saves predating the video-quality selector (or with a stale value) default to High.
+    if (!QUALITY_PRESETS[state.videoQuality]) state.videoQuality = 'high';
     if (!state.layoutShared || typeof state.layoutShared !== 'object') {
       state.layoutShared = { line: null, ring: null };
     }
@@ -4904,10 +4954,12 @@ function renderRingStage(iconRow) {
     }
     slot.addEventListener('pointerenter', () => { ringHoveredIdx = i; });
     slot.addEventListener('pointerleave', () => { if (ringHoveredIdx === i) ringHoveredIdx = -1; });
-    slot.addEventListener('click', () => {
-      // A drag that ends on an icon still fires click — only ripple on true clicks.
+    slot.addEventListener('click', (e) => {
+      // A drag that ends on an icon still fires click — ignore those.
       if (ringDragMoved) return;
-      ringRipples.push({ origin: i, start: performance.now() });
+      // Shift-click previews the ripple; a plain click changes the icon (like Line).
+      if (e.shiftKey) ringRipples.push({ origin: i, start: performance.now() });
+      else openPicker(i);
     });
     iconRow.appendChild(slot);
     ringOrbs.push(slot);
@@ -4926,23 +4978,26 @@ function ringFrame(t) {
   ringLastT = t;
   const R = state.ring;
   // Rotation: grabbed (smoothed pointer velocity) → flung (friction decay,
-  // blending back into auto-rotation) → auto.
-  if (ringDragActive && ringDragMoved && R.dragOn) {
-    if (t - ringDragLastMoveT > 80) ringDragInstV = 0; // pointer parked mid-hold
-    const k = 40 - 37 * (R.dragWeight / 100); // weight 0 → snappy, 100 → heavy
-    if (ringSpinVel === null) ringSpinVel = 0;
-    ringSpinVel += (ringDragInstV - ringSpinVel) * Math.min(1, dt * k);
-    ringSpinVel = Math.max(-RING_MAX_FLING, Math.min(RING_MAX_FLING, ringSpinVel));
-    ringBaseAngle += ringSpinVel * dt;
-  } else if (ringSpinVel !== null) {
-    ringSpinVel *= Math.exp(-R.dragResist * 0.5 * dt);
-    ringBaseAngle += ringSpinVel * dt;
-    const base = R.speed * (R.reverse ? -1 : 1);
-    if (Math.abs(ringSpinVel) <= Math.max(2, Math.abs(base))) ringSpinVel = null;
-  } else {
-    ringBaseAngle += R.speed * dt * (R.reverse ? -1 : 1);
+  // blending back into auto-rotation) → auto. Frozen entirely while scrub-paused
+  // (the mouse wheel drives the angle then instead).
+  if (!scrubPaused) {
+    if (ringDragActive && ringDragMoved && R.dragOn) {
+      if (t - ringDragLastMoveT > 80) ringDragInstV = 0; // pointer parked mid-hold
+      const k = 40 - 37 * (R.dragWeight / 100); // weight 0 → snappy, 100 → heavy
+      if (ringSpinVel === null) ringSpinVel = 0;
+      ringSpinVel += (ringDragInstV - ringSpinVel) * Math.min(1, dt * k);
+      ringSpinVel = Math.max(-RING_MAX_FLING, Math.min(RING_MAX_FLING, ringSpinVel));
+      ringBaseAngle += ringSpinVel * dt;
+    } else if (ringSpinVel !== null) {
+      ringSpinVel *= Math.exp(-R.dragResist * 0.5 * dt);
+      ringBaseAngle += ringSpinVel * dt;
+      const base = R.speed * (R.reverse ? -1 : 1);
+      if (Math.abs(ringSpinVel) <= Math.max(2, Math.abs(base))) ringSpinVel = null;
+    } else {
+      ringBaseAngle += R.speed * dt * (R.reverse ? -1 : 1);
+    }
+    ringBaseAngle %= 360;
   }
-  ringBaseAngle %= 360;
   ringRipples = ringRipples.filter(r => (t - r.start) / 1000 <= RING_RIPPLE_LIFE);
 
   const canvas = getCanvas();
@@ -5004,6 +5059,107 @@ function ringFrame(t) {
     el.style.zIndex = Math.round(d01 * 1000);
   }
   ringRAF = requestAnimationFrame(ringFrame);
+}
+
+// ── Pause + frame scrub ──────────────────────────────────────────────────────
+// PAUSE freezes the animation so PNG/SVG can capture an exact frame; the mouse
+// wheel over the stage then scrubs (ring → orbit angle, line → segment time).
+let scrubPaused = false;
+let scrubLineT = null;           // ms into the active segment while paused (line)
+const RING_SCRUB_STEP = 2.5;     // degrees per wheel notch
+const LINE_SCRUB_STEP = 40;      // ms per wheel notch
+
+function setScrubPaused(on) {
+  scrubPaused = on;
+  const btn = document.getElementById('btn-pause-anim');
+  if (btn) {
+    btn.classList.toggle('active', on);
+    btn.textContent = on ? '▶ Resume Animation' : '⏸ Pause Animation';
+  }
+  document.getElementById('app').classList.toggle('scrub-paused', on);
+  if (state.layout === 'ring') {
+    // ringFrame stops advancing the angle while paused; keep it running so
+    // wheel scrubs still repaint.
+    if (on && !ringRAF && ringOrbs.length) { ringLastT = performance.now(); ringRAF = requestAnimationFrame(ringFrame); }
+  } else {
+    if (on) {
+      scrubLineT = getSegmentTotalDuration(state.activeSegment); // start at settled frame
+      renderLineFrameAt(scrubLineT);
+    } else {
+      scrubLineT = null;
+      renderStage(true); // back to the rest state
+    }
+  }
+}
+
+// Apply the active line segment's frame at localT directly to the DOM slots —
+// the live preview animates via CSS transitions, which can't be frozen mid-way.
+function renderLineFrameAt(localT) {
+  const iconRow = document.getElementById('iconRow');
+  if (!iconRow) return;
+  const slots = iconRow.querySelectorAll('.icon-slot');
+  const n = slots.length;
+  if (!n) return;
+  const seg = state.segments[state.activeSegment] || {};
+  const dur = state.duration, stagger = state.stagger;
+  const startScale = state.startScale / 100;
+  const isOut = isOutSegment();
+  const reverseOrder = isOut && !!seg.reverseOrder;
+  const maxStep = getMirrorMaxStep(n);
+  slots.forEach((slot, i) => {
+    slot.style.transition = 'none';
+    if (slot.classList.contains('empty')) { slot.style.opacity = '1'; slot.style.transform = 'scale(1)'; return; }
+    const step = getMirrorStep(i, n);
+    const delay = (reverseOrder ? (maxStep - step) : step) * stagger;
+    const t = Math.max(0, Math.min(1, (localT - delay) / dur));
+    const e = easeFromString(state.easing, t);
+    const progress = isOut ? 1 - e : e;
+    const xOffset = getSlideOffset(i, n, state.slideDistance) * (1 - progress);
+    const scale = startScale + (1 - startScale) * progress;
+    slot.style.transform = 'translateX(' + xOffset + 'px) scale(' + scale + ')';
+    slot.style.opacity = String(progress);
+  });
+}
+
+// One wheel notch of scrub in the current layout.
+function scrubByWheel(dir) {
+  if (state.layout === 'ring') {
+    ringBaseAngle = (ringBaseAngle + dir * RING_SCRUB_STEP + 360) % 360;
+    if (!ringRAF && ringOrbs.length) { ringLastT = performance.now(); ringRAF = requestAnimationFrame(ringFrame); }
+  } else {
+    const total = getSegmentTotalDuration(state.activeSegment);
+    const base = scrubLineT == null ? total : scrubLineT;
+    scrubLineT = Math.max(0, Math.min(total, base + dir * LINE_SCRUB_STEP));
+    renderLineFrameAt(scrubLineT);
+  }
+}
+
+// Click-drag scrubbing — horizontal drag over the stage while paused. Absolute:
+// the frame tracks the cursor from where the drag began.
+let scrubDragging = false, scrubDragStartX = 0, scrubDragBase = 0;
+const RING_DEG_PER_PX = 0.35;   // ring angle change per px dragged
+const LINE_MS_PER_PX = 5;       // line segment-time change per px dragged
+
+function scrubDragStart(clientX) {
+  if (!scrubPaused) return false;
+  scrubDragging = true;
+  scrubDragStartX = clientX;
+  scrubDragBase = state.layout === 'ring'
+    ? ringBaseAngle
+    : (scrubLineT == null ? getSegmentTotalDuration(state.activeSegment) : scrubLineT);
+  return true;
+}
+function scrubDragMove(clientX) {
+  if (!scrubDragging) return;
+  const dx = clientX - scrubDragStartX;
+  if (state.layout === 'ring') {
+    ringBaseAngle = ((scrubDragBase - dx * RING_DEG_PER_PX) % 360 + 360) % 360;
+    if (!ringRAF && ringOrbs.length) { ringLastT = performance.now(); ringRAF = requestAnimationFrame(ringFrame); }
+  } else {
+    const total = getSegmentTotalDuration(state.activeSegment);
+    scrubLineT = Math.max(0, Math.min(total, scrubDragBase + dx * LINE_MS_PER_PX));
+    renderLineFrameAt(scrubLineT);
+  }
 }
 
 function renderStage(skipAnimation = false) {
@@ -6083,28 +6239,40 @@ function buildFilename(ext, extra) {
   return parts.join('_') + '.' + ext;
 }
 
+// Static single-frame SVG of the current stage frame — line (rest row) or ring
+// (current orbit angle). Vector + crisp; depth blur is intentionally omitted
+// (use PNG for the blurred look). Reflects the scrubbed frame when paused.
 async function exportSVG() {
-  if (state.layout === 'ring') {
-    // The animated-SVG exporter builds CSS-keyframe slide-ins; the ring's
-    // continuous orbit + per-icon blur needs a different generator (future work).
-    showToast('Animated SVG export is not available in ring mode yet');
-    return;
-  }
+  ensureAssignments();
   const [w, h] = state.resolution.split('x').map(Number);
   const _c = getCanvas(); const stageW = _c.w, stageH = _c.h;
   const s = Math.min(w / stageW, h / stageH);
   const offsetX = (w - stageW * s) / 2;
   const offsetY = (h - stageH * s) / 2;
-  const slotSize = getSlotSize();
-  const gap = getGap();
-  const totalWidth = slotSize * state.count + gap * (state.count - 1);
-  const startX = stageW / 2 - totalWidth / 2;
-  const centerY = stageH / 2;
-  const dur = state.duration / 1000;
-  const stagger = state.stagger / 1000;
-  const startScale = state.startScale / 100;
-  const m = state.easing.match(/cubic-bezier\(([^)]+)\)/);
-  const ks = m ? m[1].split(',').map(s => s.trim()).join(' ') : '0.42 0 0.58 1';
+
+  // Pull an icon's inner markup + viewBox so it can nest as a static <svg>.
+  const iconParts = (icon) => {
+    let inner = icon.svg.replace(/<\?xml[^>]*\?>/g, '').replace(/<!DOCTYPE[^>]*>/g, '');
+    const svgMatch = inner.match(/<svg[^>]*>([\s\S]*)<\/svg>/);
+    let viewBox = '0 0 100 100';
+    if (svgMatch) {
+      const vb = inner.match(/<svg[^>]*>/)[0].match(/viewBox\s*=\s*["']([^"']+)["']/);
+      if (vb) viewBox = vb[1];
+      inner = svgMatch[1];
+    }
+    return { inner, viewBox };
+  };
+  // One nested <svg> at stage-space (x,y,size) → export-space, with opacity and
+  // an optional filter attribute (depth blur).
+  const place = (icon, x, y, size, opacity, filterAttr) => {
+    const { inner, viewBox } = iconParts(icon);
+    const dSize = size * s;
+    const dX = (x - size / 2) * s + offsetX;
+    const dY = (y - size / 2) * s + offsetY;
+    const op = opacity < 0.999 ? ` opacity="${opacity.toFixed(3)}"` : '';
+    return `<g${op}${filterAttr || ''}><svg width="${dSize.toFixed(1)}" height="${dSize.toFixed(1)}" x="${dX.toFixed(1)}" y="${dY.toFixed(1)}" viewBox="${viewBox}" overflow="visible">${inner}</svg></g>`;
+  };
+
   let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">`;
   if (state.bgOn) {
     if (state.bgMode === 'linear') {
@@ -6122,41 +6290,76 @@ async function exportSVG() {
       svg += `<rect width="${w}" height="${h}" fill="${state.bgColor}"/>`;
     }
   }
-  for (let i = 0; i < state.count; i++) {
-    const id = state.assignments[i];
-    if (!id) continue;
-    const icon = state.library.find(x => x.id === id);
-    if (!icon) continue;
-    const step = getMirrorStep(i, state.count);
-    const delay = step * stagger;
-    const xStart = getSlideOffset(i, state.count, state.slideDistance);
-    const cx = startX + i * (slotSize + gap) + slotSize / 2;
-    const cy = centerY;
-    const drawX = (cx - slotSize / 2) * s + offsetX;
-    const drawY = (cy - slotSize / 2) * s + offsetY;
-    const drawSize = slotSize * s;
-    let inner = icon.svg.replace(/<\?xml[^>]*\?>/g, '').replace(/<!DOCTYPE[^>]*>/g, '');
-    const svgMatch = inner.match(/<svg[^>]*>([\s\S]*)<\/svg>/);
-    let viewBox = '0 0 100 100';
-    if (svgMatch) {
-      const opening = inner.match(/<svg[^>]*>/)[0];
-      const vbMatch = opening.match(/viewBox\s*=\s*["']([^"']+)["']/);
-      if (vbMatch) viewBox = vbMatch[1];
-      inner = svgMatch[1];
+
+  if (state.layout === 'ring') {
+    // Mirror ringFrame's base geometry at the current angle (no hover/ripple/intro).
+    const R = state.ring;
+    const cx = stageW / 2, cy = stageH / 2;
+    const rx = (stageW / 2) * R.radius / 100;
+    const ry = rx * R.tilt / 100;
+    const a = R.angle * Math.PI / 180;
+    const cosA = Math.cos(a), sinA = Math.sin(a);
+    const frontSize = stageH * R.size / 100;
+    const blurStageScale = stageH / 1080; // blur slider is calibrated at 1080p
+    const n = state.count;
+    const items = [];
+    for (let i = 0; i < n; i++) {
+      const id = state.assignments[i]; if (!id) continue;
+      const icon = state.library.find(x => x.id === id); if (!icon) continue;
+      const th = (ringBaseAngle + i * 360 / n) * Math.PI / 180;
+      const ex = rx * Math.cos(th), ey = ry * Math.sin(th);
+      const d01 = (Math.sin(th) + 1) / 2; // 0 = back, 1 = front
+      const x = cx + ex * cosA - ey * sinA;
+      const y = cy + ex * sinA + ey * cosA;
+      const size = frontSize * (1 - (R.depth / 100) * (1 - d01));
+      const opacity = 1 - (R.fade / 100) * (1 - d01);
+      const blurPx = R.blur * (1 - d01) * blurStageScale * s; // output px, matches drawRingFrame
+      items.push({ icon, x, y, size, opacity, blurPx, d01 });
     }
-    const tx = drawX + drawSize / 2;
-    const ty = drawY + drawSize / 2;
-    svg += `<g opacity="0">
-      <animate attributeName="opacity" from="0" to="1" begin="${delay}s" dur="${dur}s" fill="freeze" calcMode="spline" keyTimes="0;1" keySplines="${ks}"/>
-      <g transform="translate(${tx} ${ty})">
-        <g transform="translate(${xStart} 0) scale(${startScale})">
-          <animateTransform attributeName="transform" type="translate" from="${xStart} 0" to="0 0" begin="${delay}s" dur="${dur}s" fill="freeze" calcMode="spline" keyTimes="0;1" keySplines="${ks}" additive="replace"/>
-          <animateTransform attributeName="transform" type="scale" from="${startScale}" to="1" begin="${delay}s" dur="${dur}s" fill="freeze" calcMode="spline" keyTimes="0;1" keySplines="${ks}" additive="sum"/>
-          <svg width="${drawSize}" height="${drawSize}" x="${-drawSize / 2}" y="${-drawSize / 2}" viewBox="${viewBox}" overflow="visible">${inner}</svg>
-        </g>
-      </g>
-    </g>`;
+    items.sort((p, q) => p.d01 - q.d01); // paint back-to-front
+    let filterDefs = '', fi = 0;
+    for (const it of items) {
+      let filterAttr = '';
+      if (it.blurPx > 0.3) {
+        const id = 'b' + (fi++);
+        // Generous region so large blurs on small back icons aren't clipped.
+        filterDefs += `<filter id="${id}" x="-200%" y="-200%" width="500%" height="500%"><feGaussianBlur stdDeviation="${it.blurPx.toFixed(2)}"/></filter>`;
+        filterAttr = ` filter="url(#${id})"`;
+      }
+      svg += place(it.icon, it.x, it.y, it.size, it.opacity, filterAttr);
+    }
+    if (filterDefs) svg += `<defs>${filterDefs}</defs>`;
+  } else {
+    // Line: the scrubbed frame when paused, otherwise the settled (rest) row.
+    const slotSize = getSlotSize();
+    const gap = getGap();
+    const totalWidth = slotSize * state.count + gap * (state.count - 1);
+    const startX = stageW / 2 - totalWidth / 2;
+    const centerY = stageH / 2;
+    const scrubbing = scrubPaused && scrubLineT != null;
+    const segObj = state.segments[state.activeSegment] || {};
+    const isOut = isOutSegment();
+    const reverseOrder = isOut && !!segObj.reverseOrder;
+    const maxStep = getMirrorMaxStep(state.count);
+    const startScale = state.startScale / 100;
+    for (let i = 0; i < state.count; i++) {
+      const id = state.assignments[i]; if (!id) continue;
+      const icon = state.library.find(x => x.id === id); if (!icon) continue;
+      const cx = startX + i * (slotSize + gap) + slotSize / 2;
+      let xOffset = 0, scale = 1, opacity = 1;
+      if (scrubbing) {
+        const step = getMirrorStep(i, state.count);
+        const delay = (reverseOrder ? (maxStep - step) : step) * state.stagger;
+        const t = Math.max(0, Math.min(1, (scrubLineT - delay) / state.duration));
+        const progress = isOut ? 1 - easeFromString(state.easing, t) : easeFromString(state.easing, t);
+        xOffset = getSlideOffset(i, state.count, state.slideDistance) * (1 - progress);
+        scale = startScale + (1 - startScale) * progress;
+        opacity = progress;
+      }
+      svg += place(icon, cx + xOffset, centerY, slotSize * scale, opacity);
+    }
   }
+
   svg += '</svg>';
   const blob = new Blob([svg], { type: 'image/svg+xml' });
   downloadBlob(blob, buildFilename('svg'));
@@ -6363,70 +6566,33 @@ async function exportPNG() {
   const ctx = canvas.getContext('2d');
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-  // PNG = the final frame of the LAST selected segment. For intros this is the
-  // settled state; for outros the items have already faded away.
-  const timeline = buildExportTimeline();
-  const last = timeline.items[timeline.items.length - 1];
-  const needIcons = !isA8cSeg(last.seg);
-  const needLetters = isA8cSeg(last.seg);
-  const iconImages = needIcons ? await renderIconsToImages(getIconRenderSize(w, h)) : [];
-  const a8cImages  = needLetters ? await renderA8cLettersToImages(getA8cRenderSize(w, h)) : [];
-  drawSegmentFrameSupersampled(ctx, w, h, last.seg, last.durMs + 100, iconImages, a8cImages);
+  if (state.layout === 'ring') {
+    // Still of the ring at the current (scrubbed) orbit angle. Intro is disabled
+    // for the capture so icons are at their settled sizes, not mid-fade-in.
+    const iconImages = await renderIconsToImages(getIconRenderSize(w, h));
+    const savedAngle = ringExportStartAngle, savedIntro = state.ring.introOn;
+    ringExportStartAngle = ringBaseAngle;
+    state.ring.introOn = false;
+    drawSegmentFrameSupersampled(ctx, w, h, 'ring', 0, iconImages, []);
+    state.ring.introOn = savedIntro;
+    ringExportStartAngle = savedAngle;
+  } else {
+    // Line: the scrubbed frame when paused, otherwise the final settled frame.
+    let seg, localT;
+    if (scrubPaused && scrubLineT != null) {
+      seg = state.activeSegment; localT = scrubLineT;
+    } else {
+      const last = buildExportTimeline().items.slice(-1)[0];
+      seg = last.seg; localT = last.durMs + 100;
+    }
+    const iconImages = !isA8cSeg(seg) ? await renderIconsToImages(getIconRenderSize(w, h)) : [];
+    const a8cImages  = isA8cSeg(seg) ? await renderA8cLettersToImages(getA8cRenderSize(w, h)) : [];
+    drawSegmentFrameSupersampled(ctx, w, h, seg, localT, iconImages, a8cImages);
+  }
   canvas.toBlob(blob => {
     downloadBlob(blob, buildFilename('png'));
     showToast('PNG exported');
   }, 'image/png');
-}
-
-async function exportGIF() {
-  if (ringVideoLocked()) { showToast('Ring speed is below 7 — speed it up to render video'); return; }
-  if (!window.gifenc) {
-    showToast('GIF encoder not loaded');
-    return;
-  }
-  const { GIFEncoder, quantize, applyPalette } = window.gifenc;
-
-  const q = getQuality();
-  const [w, h] = state.resolution.split('x').map(Number);
-  // GIFs are still capped (they get enormous fast) but the cap follows quality
-  const gifW = Math.min(w, q.gifMaxW);
-  const gifH = Math.round(gifW * (h / w));
-  const fps = 30;
-  const delayMs = Math.round(1000 / fps);
-
-  const canvas = document.createElement('canvas');
-  canvas.width = gifW; canvas.height = gifH;
-  const ctx = canvas.getContext('2d');
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-
-  showToast('Rasterizing icons…');
-  const timeline = buildExportTimeline();
-  const needIcons = timeline.items.some(it => !isA8cSeg(it.seg));
-  const needLetters = timeline.items.some(it => isA8cSeg(it.seg));
-  const iconImages = needIcons ? await renderIconsToImages(getIconRenderSize(gifW, gifH)) : [];
-  const a8cImages  = needLetters ? await renderA8cLettersToImages(getA8cRenderSize(gifW, gifH)) : [];
-
-  showToast('Encoding GIF…');
-  const enc = GIFEncoder();
-  const totalMs = timeline.totalMs + 300;
-  const frameCount = Math.ceil((totalMs / 1000) * fps);
-
-  for (let f = 0; f <= frameCount; f++) {
-    const t = (f / fps) * 1000;
-    drawSequenceFrameSupersampled(ctx, gifW, gifH, timeline, t, iconImages, a8cImages);
-    const data = ctx.getImageData(0, 0, gifW, gifH).data;
-    // Quality-tuned palette: more colors + finer color space at higher quality
-    const palette = quantize(data, q.gifColors, { format: q.gifKsize });
-    const index = applyPalette(data, palette, q.gifKsize);
-    enc.writeFrame(index, gifW, gifH, { palette, delay: delayMs });
-    if (f % 4 === 0) await new Promise(r => setTimeout(r, 0));
-  }
-  enc.finish();
-  const buf = enc.bytes();
-  const blob = new Blob([buf], { type: 'image/gif' });
-  downloadBlob(blob, buildFilename('gif'));
-  showToast('GIF exported (' + (blob.size / 1024 / 1024).toFixed(1) + ' MB)');
 }
 
 function savePreset() {
@@ -6682,7 +6848,7 @@ function ringVideoLocked() {
 }
 function updateRingExportLockUI() {
   const locked = ringVideoLocked();
-  ['btn-export-webm', 'btn-export-mp4', 'btn-export-gif'].forEach(id => {
+  ['btn-export-webm', 'btn-export-mp4'].forEach(id => {
     document.getElementById(id).disabled = locked;
   });
   document.getElementById('ringSpeedNote').style.display = locked ? '' : 'none';
@@ -6748,6 +6914,7 @@ function bindUIFromState() {
   document.getElementById('bg-off').classList.toggle('active', !state.bgOn);
   document.getElementById('s-resolution').value = state.resolution;
   document.getElementById('s-fps').value = state.fps;
+  document.getElementById('s-quality').value = state.videoQuality;
   document.querySelectorAll('#exportRange button[data-range]').forEach(b => {
     b.classList.toggle('active', b.dataset.range === (state.exportRange || 'all'));
   });
@@ -7171,6 +7338,7 @@ function bindEvents() {
   // state.ring; the rAF loop reads it live, so no renderStage needed on input.
   const setLayout = (mode) => {
     if (state.layout === mode) return;
+    if (scrubPaused) setScrubPaused(false); // don't carry a frozen frame across layouts
     // Unlinked: each layout keeps its own copy of the shared settings.
     // Stash the outgoing layout's values, restore the incoming one's.
     if (!state.layoutLink) {
@@ -7217,6 +7385,7 @@ function bindEvents() {
   // event; the frame loop smooths it (Weight) and decays it after release
   // (Resistance). A press that never crosses the threshold stays a click.
   document.getElementById('stageInner').addEventListener('pointerdown', (e) => {
+    if (scrubPaused) { scrubDragStart(e.clientX); return; } // paused → drag scrubs the frame
     if (state.layout !== 'ring' || !state.ring.dragOn) return;
     ringDragActive = true;
     ringDragMoved = false;
@@ -7227,6 +7396,7 @@ function bindEvents() {
     ringDragInstV = 0;
   });
   window.addEventListener('pointermove', (e) => {
+    if (scrubDragging) { scrubDragMove(e.clientX); return; }
     if (!ringDragActive) return;
     const now = performance.now();
     if (Math.abs(e.clientX - ringDragStartX) > RING_DRAG_THRESHOLD) ringDragMoved = true;
@@ -7237,6 +7407,7 @@ function bindEvents() {
     ringDragLastMoveT = now;
   });
   window.addEventListener('pointerup', () => {
+    if (scrubDragging) { scrubDragging = false; return; }
     if (!ringDragActive) return;
     ringDragActive = false;
     if (ringDragMoved && ringSpinVel !== null) {
@@ -7395,6 +7566,7 @@ function bindEvents() {
 
   document.getElementById('s-resolution').onchange = (e) => { state.resolution = e.target.value; persist(); };
   document.getElementById('s-fps').onchange = (e) => { state.fps = +e.target.value; persist(); };
+  document.getElementById('s-quality').onchange = (e) => { state.videoQuality = e.target.value; persist(); };
 
   // Export segment range buttons (1/2/3/4/ALL). Single selection.
   document.querySelectorAll('#exportRange button[data-range]').forEach(btn => {
@@ -7455,9 +7627,15 @@ function bindEvents() {
   document.getElementById('btn-export-mp4').onclick = exportMP4;
   document.getElementById('btn-export-svg').onclick = exportSVG;
   document.getElementById('btn-export-png').onclick = exportPNG;
-  document.getElementById('btn-export-gif').onclick = exportGIF;
   document.getElementById('btn-copy-embed').onclick = copyEmbed;
   document.getElementById('btn-export-html').onclick = exportRingHTML;
+  document.getElementById('btn-pause-anim').onclick = () => setScrubPaused(!scrubPaused);
+  // Mouse wheel over the stage scrubs the paused frame (no effect when playing).
+  document.getElementById('stageInner').addEventListener('wheel', (e) => {
+    if (!scrubPaused) return;
+    e.preventDefault();
+    scrubByWheel(e.deltaY > 0 ? 1 : -1);
+  }, { passive: false });
 
   document.getElementById('btn-save-preset').onclick = savePreset;
   const presetInput = document.getElementById('presetInput');
