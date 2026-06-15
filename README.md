@@ -1,25 +1,29 @@
 # A8c Product Logos Slide Tool
 
-A single-file browser tool for composing a four-segment brand animation — **logos in → logos out → AUTOMATTIC wordmark in → AUTOMATTIC wordmark out** — and exporting any segment or the full sequence as **MP4, WebM, GIF, animated SVG, or PNG**. No install, no build step, no server. One HTML file.
+A single-file browser tool for building brand animations from a row of product icons and the **AUTOMATTIC** wordmark, then exporting them as **MP4, WebM, GIF, animated SVG, PNG, or a self-contained interactive HTML page**. No install, no build step, no server. One HTML file.
+
+It ships with **two layout modes**:
+
+- **Line** — a four-segment timeline: *logos in → logos out → AUTOMATTIC in → AUTOMATTIC out*, each segment with its own timing and easing.
+- **Ring** — a continuous 3D orbit of icons with depth-of-field, optional intro, and live interactions (hover, ripple, drag-to-spin).
 
 [**▶ Try it live**](https://nick-a8c.github.io/product-logos-slide-tool/) · [Download](product-logos-slide-tool.html)
 
 ——
 
-![Icon Stage screenshot](examples/01-setings-update-01.png)
-![Icon Stage screenshot](examples/03-icon-number-control-med-update_1a.png)
+![Ring layout — 3D orbit with depth-of-field](examples/00-cover-ring.png)
+![Line layout — four-segment timeline](examples/01-setings-update-01.png)
 
 ## What it does
 
-Drop in a row of brand icons. Configure them — count, spacing, scale, animation timing, easing. Add the AUTOMATTIC wordmark as an intro + outro. Hit play on a specific segment to preview, or PLAY ALL to walk the whole sequence. Export whatever segment(s) your destination needs.
+Drop in a row of brand icons and configure them — count, scale, animation, background. Pick a layout, preview it, and export whatever your destination needs. New visitors open in **Line** mode; the tool then remembers your last layout and settings between visits.
 
-- **Four-segment timeline** — Logos Intro, Logos Outro, A8C Intro, A8C Outro. Each segment has its own animation params and a duration dropdown. Between segments are configurable pauses (0–10s).
-- **AUTOMATTIC wordmark** — built in as a new asset type. The logo is split into 10 letters that animate just like the icons, using the wordmark's natural source spacing.
+- **Two layouts** — a four-segment **Line** timeline and a continuous 3D **Ring** orbit, switchable any time
+- **AUTOMATTIC wordmark** — split into 10 letters that animate like the icons, using the wordmark's natural spacing
 - **6 aspect ratios** — 16:9, 21:9, 4:3, 9:16, 4:5, 1:1
-- **Auto mode** per animation control, plus global AUTO / CUSTOM shortcuts
-- **Order of movement** toggle on the two outro segments (inner first vs outer first)
-- **Five export formats** — MP4 (H.264), WebM (VP9 with alpha), GIF, animated SVG (SMIL), PNG
-- **Export range selector** — `1 / 2 / 3 / 4 / ALL`. Pick which segments the exporter renders
+- **Gradient backgrounds** — solid, linear, or radial, applied in both layouts and every export
+- **Auto modes** — per-control AUTO/CUSTOM in Line; an aspect-aware AUTO/CUSTOM for the whole Ring shape
+- **Six export formats** — MP4 (H.264), WebM (VP9 with alpha), GIF, animated SVG (SMIL), PNG, and an interactive self-contained HTML page (Ring)
 - **Fully offline** — every dependency is inlined. Works without network access.
 
 ## How to use
@@ -36,24 +40,12 @@ Download `product-logos-slide-tool.html`, double-click to open in your browser.
 
 Drop `product-logos-slide-tool.html` anywhere a static file can be served. No build, no bundler.
 
-## Browser support
-
-| Format | Chrome / Edge | Safari 16.4+ | Firefox |
-|---|---|---|---|
-| MP4 | ✓ | ✓ | ✗ |
-| WebM | ✓ | ✓ | ✓ |
-| GIF | ✓ | ✓ | ✓ |
-| Animated SVG | ✓ | ✓ | ✓ |
-| PNG | ✓ | ✓ | ✓ |
-
-MP4 export uses the browser-native [WebCodecs](https://developer.mozilla.org/en-US/docs/Web/API/WebCodecs_API) `VideoEncoder`, which Firefox doesn't yet support. Use WebM there.
-
-## The timeline
+## Line layout — the four-segment timeline
 
 The four segments live on a horizontal timeline under the stage. Click any segment pill to focus and replay it. Each segment has:
 
 - A **duration dropdown** (0–10s) on the right
-- An **animation panel** in the side panel (Animate IN / Animate OUT / A8C Intro / A8C Outro) with Speed, Stagger, Slide distance, Start scale, and Easing
+- An **animation panel** (Animate IN / Animate OUT / A8C Intro / A8C Outro) with Speed, Stagger, Slide distance, Start scale, and Easing
 - A short **inter-segment pause** dropdown sitting between it and the next segment
 
 Three play buttons live in the bottom bar:
@@ -62,29 +54,79 @@ Three play buttons live in the bottom bar:
 - **LOOP SEGMENT** — loops the currently focused segment
 - **PLAY ALL** — walks all four segments back-to-back, honoring the pause dropdowns
 
-## Animation model
+### Animation model
 
 - **Intros** play *inner first → outer last*: middle icons land first, outer icons fan out with stagger.
 - **Outros** by default mirror the intros (inner first → outer last); each outro panel has an **Order of movement** toggle that flips this to *outer first → inner last*.
 - Slide distance is signed: negative compresses inward then flares out, positive starts spread then contracts in. Outermost icons travel ±100px max. Middle icon stays put.
 
+## Ring layout — the 3D orbit
+
+Switch **Stage Layout** to **RING** for a continuous orbit instead of a timeline. Icons travel a tilted ellipse with depth-of-field: icons toward the back scale down, blur, and fade; icons in front are sharp and full-size.
+
+**Ring controls** — Radius, Tilt, Angle, Speed, Direction (forward/reverse), Icon Size, Depth Scale, Blur (DoF), and Fade Back, plus an optional staggered **Intro**.
+
+### Ring AUTO / CUSTOM
+
+The **Overall Control** at the top works in Ring mode too:
+
+- **AUTO** sets the four shape sliders — **Radius, Tilt, Angle, Icon Size** — to values tuned for the current aspect ratio, and re-snaps them whenever you change aspect. Those four plus **Speed** appear grayed out (still draggable — grabbing one drops you into CUSTOM).
+- **CUSTOM** hands you full manual control of every Ring setting.
+- AUTO is **non-destructive**: switching to AUTO stashes your CUSTOM "playground." Switch back without touching anything and it's restored exactly. The first time you change *any* Ring setting in AUTO, the stash is committed and CUSTOM keeps the new values.
+
+| Aspect | Radius | Tilt | Angle | Icon Size |
+|---|---|---|---|---|
+| 16:9 | 65 | 32 | -18 | 12 |
+| 21:9 | 48 | 32 | -18 | 12 |
+| 4:3 | 60 | 32 | -18 | 9 |
+| 9:16 | 95 | 35 | -60 | 7 |
+| 4:5 | 89 | 30 | -60 | 7 |
+| 1:1 | 60 | 32 | -18 | 9 |
+
+### Ring interactions
+
+These run in the live preview and in the exported interactive HTML (never in video exports):
+
+- **Hover** — grow or shrink the icon under the cursor, with an adjustable **spread** that eases the effect into neighboring icons
+- **Ripple** — click the ring to send a wave travelling both ways around the orbit
+- **Drag-to-spin** — grab the ring and fling it; **Grip / Resistance / Weight** shape how it grabs, decays, and settles back into auto-rotation
+
+### Layout link
+
+The chain button between **LINE** and **RING** mirrors the settings the two layouts share (icon count, zoom, background). It's **off by default** for new visitors — each layout keeps its own copy of those settings, so switching layouts doesn't disturb the other. Turn it on to keep them in sync.
+
+## Backgrounds
+
+A single background control feeds the live stage and every exporter. Choose **Solid**, **Linear**, or **Radial**:
+
+- Solid uses one color.
+- Linear/Radial blend between two colors, with angle (linear), center position (radial), and spread controls.
+
+Backgrounds can also be turned off entirely — useful for WebM and SVG exports, which preserve transparency.
+
 ## Controls
 
 | Control | Range | Scope | What it does |
 |---|---|---|---|
-| Icons | 2 – 25 (or 18 for 9:16 / 4:5 / 1:1) | Composition | How many slots in the row |
-| Spacing | 0 – 40 | Composition | Pixel gap between icons (doesn't affect A8C — wordmark spacing is built in) |
-| Scale | 40 – 200 | Composition | Size multiplier for each icon slot |
+| Icons | 2 – 25 (or 18 for 9:16 / 4:5 / 1:1) | Composition | How many icons in the row / ring |
+| Spacing | 0 – 40 | Composition (Line) | Pixel gap between icons (doesn't affect the wordmark) |
+| Scale | 40 – 200 | Composition (Line) | Size multiplier for each icon |
 | Zoom | 20 – 100 | Composition (preview only) | Viewport zoom (not exported) |
-| A8C scale | 10 – 80 | A8C section | Wordmark height — separate from icon scale |
-| Speed | 0.2s – 3.0s | Per-segment | Per-item animation duration |
-| Stagger | 0 – 100ms | Per-segment | Delay between paired items |
-| Slide dist. | -50 – +50 | Per-segment | Travel distance, signed |
-| Start scale | 0 – 100 | Per-segment | Starting size as % of final |
-| Easing | dropdown | Per-segment | Cubic-bezier curve |
-| Order of movement | toggle | Outros only | Inner-first (default) vs outer-first stagger |
+| A8C scale | 10 – 80 | A8C section (Line) | Wordmark height — separate from icon scale |
+| Speed | 0.2s – 3.0s | Per-segment (Line) | Per-item animation duration |
+| Stagger | 0 – 100ms | Per-segment (Line) | Delay between paired items |
+| Slide dist. | -50 – +50 | Per-segment (Line) | Travel distance, signed |
+| Start scale | 0 – 100 | Per-segment (Line) | Starting size as % of final |
+| Easing | dropdown | Per-segment (Line) | Cubic-bezier curve |
+| Order of movement | toggle | Outros only (Line) | Inner-first (default) vs outer-first stagger |
+| Radius / Tilt / Angle | sliders | Ring | Orbit geometry |
+| Speed / Direction | slider + toggle | Ring | Rotation rate and direction |
+| Icon Size | slider | Ring | Icon size on the orbit |
+| Depth Scale / Blur (DoF) / Fade Back | sliders | Ring | Depth-of-field falloff toward the back |
+| Intro | toggle + sliders | Ring | Optional staggered fade-in |
+| Hover / Ripple / Drag-spin | toggles + sliders | Ring | Live interactions |
 
-Hover any control's label to reveal an **AUTO / CUSTOM** toggle.
+In Line mode, hover any control's label to reveal its **AUTO / CUSTOM** toggle. In Ring mode, the **Overall Control** at the top drives AUTO / CUSTOM for the whole shape.
 
 ## Exports
 
@@ -95,7 +137,7 @@ Export quality is fixed at the maximum tier (no quality dropdown — quality alw
 - **Every-frame keyframes** in MP4 and 1.0 bpp video bitrate — visually lossless
 - **Full-resolution GIF** (up to canvas width) with 256-color rgb565 palette
 
-Pick which segment(s) get rendered via the `1 / 2 / 3 / 4 / ALL` toggle:
+**Line** — pick which segment(s) get rendered via the `1 / 2 / 3 / 4 / ALL` toggle:
 
 | Range | What you get |
 |---|---|
@@ -106,6 +148,21 @@ Pick which segment(s) get rendered via the `1 / 2 / 3 / 4 / ALL` toggle:
 | `ALL` | All four segments back-to-back with your configured pauses between them |
 
 PNG = the final frame of the last selected segment.
+
+**Ring** — exports cover exactly one revolution, so the video loops seamlessly (plus the intro if enabled). The **Export Interactive HTML** option produces a self-contained page with the orbit and all three interactions baked in — open or host it anywhere, no dependencies. (Video exports lock out at the highest spin speeds, where a single revolution is too short for smooth playback; PNG and Interactive HTML stay available.)
+
+## Browser support
+
+| Format | Chrome / Edge | Safari 16.4+ | Firefox |
+|---|---|---|---|
+| MP4 | ✓ | ✓ | ✗ |
+| WebM | ✓ | ✓ | ✓ |
+| GIF | ✓ | ✓ | ✓ |
+| Animated SVG | ✓ | ✓ | ✓ |
+| PNG | ✓ | ✓ | ✓ |
+| Interactive HTML | ✓ | ✓ | ✓ |
+
+MP4 export uses the browser-native [WebCodecs](https://developer.mozilla.org/en-US/docs/Web/API/WebCodecs_API) `VideoEncoder`, which Firefox doesn't yet support. Use WebM there. MP4 (H.264) does not preserve transparency — use WebM or SVG if you need an alpha channel.
 
 ## Filename format
 
@@ -119,10 +176,10 @@ Format: `product-logos-slide-tool_<resolution>_<app-version>.<ext>`
 
 ## Architecture
 
-Single HTML file (~300 KB), three inlined script blocks:
+Single HTML file (~360 KB), three inlined script blocks:
 1. `gifenc` (~9 KB) — GIF encoder
 2. `mp4-muxer` (~73 KB) — MP4 container muxer
-3. App code (~220 KB) — UI, animation, sequencer, export pipeline
+3. App code — UI, animation, both layout engines, sequencer, export pipeline
 
 State persists in `localStorage`. No server, no analytics, no telemetry.
 
@@ -143,6 +200,8 @@ npx serve .
 # or
 python3 -m http.server 8000
 ```
+
+`index.html` and `product-logos-slide-tool.html` are kept identical — edit one, copy to the other.
 
 ## Contributing
 
