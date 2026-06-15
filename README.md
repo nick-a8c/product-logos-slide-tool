@@ -12,7 +12,8 @@ It ships with **two layout modes**:
 ——
 
 <!-- Hero: drop a Ring-layout screenshot at examples/00-cover-ring.png and add it above this line for a Ring hero. -->
-![Product Logos Slide Tool](examples/01-setings-update-01.png)
+![Product Logos Slide Tool](examples/AAA.png)
+![Product Logos Slide Tool](examples/BBB.png)
 
 ## What it does
 
