@@ -4142,7 +4142,11 @@ const ASPECT_RATIOS = {
 };
 
 // Current canvas dimensions
+// While a ring aspect morph is tweening, this holds interpolated stage dims so
+// the live ring loop (and applyZoom) reshape smoothly between ratios.
+let ringMorphCanvas = null;
 function getCanvas() {
+  if (ringMorphCanvas) return ringMorphCanvas;
   const r = ASPECT_RATIOS[state.aspectRatio] || ASPECT_RATIOS['16:9'];
   return { w: r.w, h: r.h };
 }
@@ -4688,6 +4692,155 @@ function applyAspectRatio(ar) {
   // Re-render stage at new dimensions (skip animation to avoid replaying on every click)
   renderStage(true);
   persist();
+}
+
+// Smooth aspect-ratio morph (LINE only). Tweens the stage frame, icon size and
+// gaps from the current geometry into the target ratio's, fading out any icons
+// the new ratio can't fit. Strategy: commit the real change (so the target
+// geometry is readable from the DOM), then replay the visual from the old
+// geometry back to the new over ~420ms. Live-preview nicety; exports untouched.
+let aspectMorphRAF = null;
+function morphToAspect(ar) {
+  if (!ASPECT_RATIOS[ar] || ar === state.aspectRatio) { applyAspectRatio(ar); return; }
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const stage = document.getElementById('stage');
+  const stageInner = document.getElementById('stageInner');
+  const iconRow = document.getElementById('iconRow');
+  if (reduce || !stage || !stageInner || !iconRow) { applyAspectRatio(ar); return; }
+  if (state.layout === 'ring') { morphRingToAspect(ar); return; }
+
+  if (aspectMorphRAF) { cancelAnimationFrame(aspectMorphRAF); aspectMorphRAF = null; }
+  stage.querySelectorAll('.morph-ghost').forEach(g => g.remove());
+
+  const scaleOf = (el) => { const m = (el.style.transform || '').match(/scale\(([-\d.]+)\)/); return m ? parseFloat(m[1]) : 1; };
+  const isA8c = isA8cSegment();
+  const from = {
+    w: parseFloat(stageInner.style.width) || stageInner.offsetWidth,
+    h: parseFloat(stageInner.style.height) || stageInner.offsetHeight,
+    scale: scaleOf(stageInner),
+    slot: iconRow.firstElementChild ? iconRow.firstElementChild.offsetWidth : 0,
+    gap: parseFloat(getComputedStyle(iconRow).gap) || 0,
+  };
+
+  // Snapshot icons the new ratio will drop (so they can fade as ghosts).
+  const newMax = getMaxCountForAspect(ar);
+  const stageRect = stage.getBoundingClientRect();
+  const ghostData = [];
+  if (!isA8c && iconRow.children.length > newMax) {
+    for (let i = newMax; i < iconRow.children.length; i++) {
+      const r = iconRow.children[i].getBoundingClientRect();
+      ghostData.push({ html: iconRow.children[i].innerHTML, left: r.left - stageRect.left, top: r.top - stageRect.top, w: r.width, h: r.height });
+    }
+  }
+
+  applyAspectRatio(ar); // commit → DOM now reflects the target
+  const to = {
+    w: parseFloat(stageInner.style.width) || stageInner.offsetWidth,
+    h: parseFloat(stageInner.style.height) || stageInner.offsetHeight,
+    scale: scaleOf(stageInner),
+    slot: iconRow.firstElementChild ? iconRow.firstElementChild.offsetWidth : 0,
+    gap: parseFloat(getComputedStyle(iconRow).gap) || 0,
+  };
+
+  const ghosts = ghostData.map(g => {
+    const d = document.createElement('div');
+    d.className = 'icon-slot morph-ghost';
+    d.style.cssText = `position:absolute;left:${g.left}px;top:${g.top}px;width:${g.w}px;height:${g.h}px;pointer-events:none;z-index:6;transform-origin:center;`;
+    d.innerHTML = g.html;
+    stage.appendChild(d);
+    return d;
+  });
+
+  const lerp = (a, b, p) => a + (b - a) * p;
+  const DUR = 420;
+  const apply = (p) => {
+    const e = easeFromString('cubic-bezier(0.4, 0.14, 0.3, 1)', p);
+    stageInner.style.width = lerp(from.w, to.w, e) + 'px';
+    stageInner.style.height = lerp(from.h, to.h, e) + 'px';
+    stageInner.style.transform = 'scale(' + lerp(from.scale, to.scale, e) + ')';
+    if (!isA8c) {
+      const ss = lerp(from.slot, to.slot, e);
+      for (const el of iconRow.children) { el.style.width = ss + 'px'; el.style.height = ss + 'px'; }
+      iconRow.style.gap = lerp(from.gap, to.gap, e) + 'px';
+    }
+    for (const d of ghosts) { d.style.opacity = String(1 - e); d.style.transform = 'scale(' + (1 - 0.4 * e) + ')'; }
+  };
+
+  apply(0); // begin from the old geometry (overrides the committed target visual)
+  const start = performance.now();
+  const step = (now) => {
+    const p = Math.min(1, (now - start) / DUR);
+    apply(p);
+    if (p < 1) { aspectMorphRAF = requestAnimationFrame(step); return; }
+    aspectMorphRAF = null;
+    ghosts.forEach(d => d.remove());
+    renderStage(true); // settle cleanly on the committed target
+  };
+  aspectMorphRAF = requestAnimationFrame(step);
+}
+
+// Ring aspect morph. The ring loop already repositions every icon from state +
+// getCanvas() each frame, so we just tween the stage dims (via ringMorphCanvas)
+// and the auto shape params (radius/tilt/angle/size); the orbit reshapes itself.
+function morphRingToAspect(ar) {
+  const stage = document.getElementById('stage');
+  const stageInner = document.getElementById('stageInner');
+  const iconRow = document.getElementById('iconRow');
+  if (aspectMorphRAF) { cancelAnimationFrame(aspectMorphRAF); aspectMorphRAF = null; }
+  stage.querySelectorAll('.morph-ghost').forEach(g => g.remove());
+
+  const fromCanvas = getCanvas(); // current dims (also handles mid-morph interrupt)
+  const toCanvas = { w: ASPECT_RATIOS[ar].w, h: ASPECT_RATIOS[ar].h };
+  const RK = ['radius', 'tilt', 'angle', 'size'];
+  const fromRing = {}; RK.forEach(k => fromRing[k] = state.ring[k]);
+
+  // Snapshot orbs the new ratio will drop, as fading ghosts.
+  const newMax = getMaxCountForAspect(ar);
+  const stageRect = stage.getBoundingClientRect();
+  const ghostData = [];
+  if (iconRow.children.length > newMax) {
+    for (let i = newMax; i < iconRow.children.length; i++) {
+      const r = iconRow.children[i].getBoundingClientRect();
+      ghostData.push({ html: iconRow.children[i].innerHTML, left: r.left - stageRect.left, top: r.top - stageRect.top, w: r.width, h: r.height });
+    }
+  }
+
+  applyAspectRatio(ar); // commit → ring auto params snap to target, count caps, orbs rebuilt
+  const toRing = {}; RK.forEach(k => toRing[k] = state.ring[k]);
+
+  // Begin the visual at the old geometry.
+  ringMorphCanvas = { w: fromCanvas.w, h: fromCanvas.h };
+  RK.forEach(k => state.ring[k] = fromRing[k]);
+  applyZoom();
+
+  const ghosts = ghostData.map(g => {
+    const d = document.createElement('div');
+    d.className = 'icon-slot morph-ghost';
+    d.style.cssText = `position:absolute;left:${g.left}px;top:${g.top}px;width:${g.w}px;height:${g.h}px;pointer-events:none;z-index:6;transform-origin:center;`;
+    d.innerHTML = g.html;
+    stage.appendChild(d);
+    return d;
+  });
+
+  const lerp = (a, b, p) => a + (b - a) * p;
+  const DUR = 420;
+  const start = performance.now();
+  const step = (now) => {
+    const p = Math.min(1, (now - start) / DUR);
+    const e = easeFromString('cubic-bezier(0.4, 0.14, 0.3, 1)', p);
+    ringMorphCanvas = { w: lerp(fromCanvas.w, toCanvas.w, e), h: lerp(fromCanvas.h, toCanvas.h, e) };
+    RK.forEach(k => state.ring[k] = lerp(fromRing[k], toRing[k], e));
+    applyZoom(); // ring loop repositions orbs from the interpolated dims + params
+    for (const d of ghosts) { d.style.opacity = String(1 - e); d.style.transform = 'scale(' + (1 - 0.4 * e) + ')'; }
+    if (p < 1) { aspectMorphRAF = requestAnimationFrame(step); return; }
+    aspectMorphRAF = null;
+    ringMorphCanvas = null;
+    RK.forEach(k => state.ring[k] = toRing[k]);
+    ghosts.forEach(d => d.remove());
+    applyZoom();
+    persist();
+  };
+  aspectMorphRAF = requestAnimationFrame(step);
 }
 
 // Update the Icons slider's max for the current aspect ratio and clamp state.count.
@@ -7700,7 +7853,7 @@ function bindEvents() {
 
   // Aspect ratio switcher
   document.querySelectorAll('#aspectSwitch button[data-ar]').forEach(btn => {
-    btn.onclick = () => applyAspectRatio(btn.dataset.ar);
+    btn.onclick = () => morphToAspect(btn.dataset.ar);
   });
 
   document.getElementById('dockToggle').onclick = (e) => {
