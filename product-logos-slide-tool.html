@@ -8,12 +8,12 @@
   /* === THEMING === */
   :root[data-theme="light"] {
     --app-bg: #ededed;
-    --stage-bg: #f5f5f7;
+    --stage-bg: #f0f0f0;
     --stage-border: #d8d8dc;
-    --panel-bg: #ffffff;
+    --panel-bg: #fcfcfc;
     --panel-shadow: 0 8px 32px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04);
     --section-border: #ececee;
-    --section-header-bg: #f5f8ff;
+    --section-header-bg: #fcfcfc;
     --speed-hl-bg: #ece9ff;
     --text: #1d1d1f;
     --text-secondary: #6e6e73;
@@ -396,15 +396,13 @@
     overflow-y: auto;
     overflow-x: hidden;
     flex: 1;
-    border-radius: 0 0 16px 16px;
+    /* Round all corners so content (incl. section headers) is clipped to the
+       panel's rounded top while scrolling, instead of a sharp square edge. */
+    border-radius: 16px;
+    scrollbar-width: none;        /* Firefox: hide scrollbar, keep scroll */
+    -ms-overflow-style: none;     /* legacy Edge */
   }
-  .panel-content::-webkit-scrollbar { width: 8px; }
-  .panel-content::-webkit-scrollbar-track { background: transparent; }
-  .panel-content::-webkit-scrollbar-thumb {
-    background: var(--text-faint);
-    border-radius: 4px;
-    opacity: 0.3;
-  }
+  .panel-content::-webkit-scrollbar { width: 0; height: 0; display: none; }
 
   /* Sections */
   .section { border-bottom: 1px solid var(--section-border); }
