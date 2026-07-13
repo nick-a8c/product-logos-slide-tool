@@ -1,19 +1,23 @@
 # Product Logos Slide Tool — Project Handoff
 
-This document captures the state of the **Product Logos Slide Tool** (internal nickname: *Icon Stage*) as of **v2.1.0** so a fresh Claude session can pick up from here without re-deriving context. Read it top to bottom before making changes.
+This document captures the state of the **Product Logos Slide Tool** (internal nickname: *Icon Stage*) so a fresh Claude session can pick up from here without re-deriving context. Read it top to bottom before making changes.
+
+`APP_VERSION` in the code is still `'v2.1'` (the export filename suffix), but the codebase has landed several **post-v2.1.0, not-yet-released** changes on top of the tagged Ring release: an export-panel overhaul (Web/High/Max quality presets, frame-scrub stills, still SVG), animated aspect-ratio morphing, panel UI polish, and a mobile bottom-sheet prototype. Those are documented below and collected under **Unreleased** in `CHANGELOG.md`. Where this handoff and the older `v2.1.0` prose disagree, the **code + README are the source of truth**.
 
 ## Quick links
 
 - **Live site:** https://nick-a8c.github.io/product-logos-slide-tool/
 - **Source:** https://github.com/nick-a8c/product-logos-slide-tool
 - **Owner:** Nebojsa Jurcic (`nick-a8c`)
-- **Current version:** v2.1.0 (Ring layout release)
+- **Current version:** `v2.1` app-version tag; ring layout + unreleased export/morph/mobile work on `main`
 
 ## What this project is
 
-A single-file HTML tool that composes a **four-segment brand animation** — `Logos Intro → Logos Outro → A8C Intro → A8C Outro` — and exports any segment or the full sequence as MP4, WebM, GIF, animated SVG, or PNG. Built for a motion designer at Automattic (Nebojsa) for use during Radical Speed Month and beyond. Initially scoped as a self-serve alternative to MOGRT for non-Adobe users (sales/business folks). The whole thing lives in **one HTML file** with all dependencies inlined — drop it on any disk, double-click, it works offline.
+A single-file HTML tool that composes brand animations from Automattic product icons and the AUTOMATTIC wordmark, then exports them. It ships **two layout modes**: a **four-segment Line timeline** (`Logos Intro → Logos Outro → A8C Intro → A8C Outro`) and a continuous 3D **Ring** orbit. Exports: **MP4, WebM, PNG, still SVG, and a self-contained interactive HTML page** (Ring). Built for a motion designer at Automattic (Nebojsa) for use during Radical Speed Month and beyond. Initially scoped as a self-serve alternative to MOGRT for non-Adobe users (sales/business folks). The whole thing lives in **one HTML file** with all dependencies inlined — drop it on any disk, double-click, it works offline.
 
-The deliverable is `product-logos-slide-tool.html` (~300 KB as of v2.0.0). Plain HTML/CSS/JS, no build step, no framework. The repo also contains an identical `index.html` for GitHub Pages serving — **keep these two files in sync** after any edit.
+> **GIF export was removed** in the post-v2.1.0 export overhaul. The `gifenc` library is still inlined (see below) but is now dead code — no `exportGIF` exists. Removing the library is a possible future cleanup.
+
+The deliverable is `product-logos-slide-tool.html` (~387 KB currently). Plain HTML/CSS/JS, no build step, no framework. The repo also contains an identical `index.html` for GitHub Pages serving — **keep these two files in sync** after any edit (they are byte-identical today).
 
 ## Audience and tone
 
@@ -28,9 +32,9 @@ The deliverable is `product-logos-slide-tool.html` (~300 KB as of v2.0.0). Plain
 ### Single-file, three script blocks
 
 The HTML body has, in order:
-1. **Inlined `gifenc`** (~9 KB IIFE-wrapped, exposes `window.gifenc`) — GIF encoder
+1. **Inlined `gifenc`** (~9 KB IIFE-wrapped, exposes `window.gifenc`) — GIF encoder, **now unused** (GIF export removed post-v2.1.0; retained only because nothing references it and pulling it is low-priority)
 2. **Inlined `mp4-muxer`** (~73 KB IIFE-wrapped, exposes `window.Mp4Muxer`) — MP4 container muxer
-3. **Main app script** — everything else (~220 KB)
+3. **Main app script** — everything else
 
 Both libraries were inlined at v1.0.0 from the npm registry, wrapped in IIFEs to keep their internal short-named vars from leaking into global scope.
 
@@ -45,7 +49,8 @@ Both libraries were inlined at v1.0.0 from the npm registry, wrapped in IIFEs to
 - **Active segment**: `state.activeSegment` — one of `'logosIn' | 'logosOut' | 'a8cIn' | 'a8cOut'`. Drives stage rendering, the top-level mirror, and which animation panel is open.
 - **Timeline pauses**: `state.segmentPauses = { logosInToOut, logosOutToA8cIn, a8cInToOut }` (seconds)
 - **Export range**: `state.exportRange` — `'1' | '2' | '3' | '4' | 'all'`
-- `bgOn`, `bgColor`, `aspectRatio`, `resolution`, `fps`
+- **Video quality**: `state.videoQuality` — `'web' | 'high' | 'max'` (default `'high'`), keys into `QUALITY_PRESETS`
+- `bgOn`, `bgColor`, `aspectRatio`, `resolution`, `fps` — first-load defaults are Large (`3840x2160` for 16:9) and `fps: 60`
 - `library` (uploaded SVGs), `assignments` (slot → icon id mapping)
 - `theme`, `panelState`, `panelX`, `panelY`
 
@@ -172,23 +177,27 @@ Every per-frame export call goes through `drawSequenceFrameSupersampled(ctx, w, 
 - 6% transparent padding (`ICON_RASTER_PAD_RATIO`) on each side so the downsample filter has fringe room for AA
 - Each bitmap carries `.padScaleX` / `.padScaleY` so `drawSegmentFrame` enlarges the draw rectangle to compensate
 
-#### Quality presets
+#### Quality presets (re-added post-v2.1.0)
 
-`EXPORT_QUALITY` is a single object (the old `low`/`medium`/`high` table was collapsed into one top-tier preset in v2.0.0 when the Quality dropdown was removed). Values:
-- `videoBpp: 1.0` — video bitrate per pixel per frame
-- `keyframeIntervalSec: 0` — every frame is a keyframe (visually lossless MP4)
-- `gifMaxW: 1920` — GIF width cap (matches canvas)
-- `gifColors: 256`, `gifKsize: 'rgb565'` — palette quantization
-- GIF uses fixed `fps = 30`
+The v2.0.0 single-preset design was **reverted** in the export overhaul — a three-way **Quality dropdown is back** for video, driven by `state.videoQuality` (`'web' | 'high' | 'max'`, default `'high'`). `QUALITY_PRESETS`:
+
+| Key | Label | `videoBpp` | `keyframeIntervalSec` |
+|---|---|---|---|
+| `web` | Web (small) | `0.010` | `2` |
+| `high` | High *(default)* | `0.030` | `2` |
+| `max` | Max (lossless) | `1.000` | `0` (every frame a keyframe) |
+
+`getQuality()` returns a copy of the active preset. Bitrate = `max(2_000_000, round(w * h * fps * videoBpp))`. `keyframeIntervalSec === 0` → every frame is a keyframe (Max); otherwise a keyframe every `fps * keyframeIntervalSec` frames. The old `gifMaxW`/`gifColors`/`gifKsize` fields are gone with GIF.
 
 #### Export functions
 
-- **WebM** (`generateWebMBlob`): VP9 with alpha when bg off, via `MediaRecorder` + `canvas.captureStream`. Routes through the sequencer.
-- **MP4** (`exportMP4`): H.264 via WebCodecs `VideoEncoder` + `mp4-muxer`. Even dimensions enforced. Tries codecs in order: `avc1.640034`/`640028` (High) → `4D0028` (Main) → `42E028` (Baseline). Routes through the sequencer.
-- **GIF** (`exportGIF`): gifenc with palette quantization. Routes through the sequencer.
-- **PNG** (`exportPNG`): final frame of the *last* selected segment via `drawSegmentFrameSupersampled` at `lastSeg.durMs + 100`.
-- **Animated SVG** (`exportSVG`): SMIL via inline `<animateTransform>` / `<animate>` elements. **Note**: still renders only the active segment (full-sequence SVG would need keyframe concatenation; not implemented yet).
-- **Embed code**: CSS keyframes HTML snippet via clipboard.
+- **WebM** (`generateWebMBlob`): VP9 with alpha when bg off, via `MediaRecorder` + `canvas.captureStream`. Routes through the sequencer. Uses the active quality preset's bitrate.
+- **MP4** (`exportMP4`): H.264 via WebCodecs `VideoEncoder` + `mp4-muxer`. Even dimensions enforced. Tries codecs in order: `avc1.640034`/`640028` (High) → `4D0028` (Main) → `42E028` (Baseline). Routes through the sequencer. Uses the active quality preset's bitrate + keyframe interval.
+- **PNG** (`exportPNG`): current still frame via `drawSegmentFrameSupersampled`. When paused-and-scrubbed it captures the scrubbed frame; otherwise the final frame of the *last* selected segment.
+- **Still SVG** (`exportSVG`): a **single-frame vector still** (not the old SMIL animation). Places each icon as a nested static `<svg>` mapped from stage space to export space, with opacity and — in **Ring** mode — the depth-of-field blur **baked in as native `<feGaussianBlur>` filter defs**, so the still matches the on-screen DoF while staying scalable. Honors the current scrub frame.
+- **Interactive HTML** (`exportRingHTML`, Ring only): self-contained page with the ring engine + interactions inlined. Replaces "Copy embed code" in ring mode.
+
+The export panel is split into **Motion** (WebM / MP4 / Interactive HTML) and **Stills** (PNG / SVG). Animated SVG (SMIL full-sequence) is no longer produced — see What's pending.
 
 ### Auto mode
 
@@ -225,6 +234,33 @@ A second stage layout alongside the classic line: a continuous 3D orbit with dep
 - **Layout link** (chain button between LINE/RING): `state.layoutLink` (default on) keeps the shared settings (`LAYOUT_SHARED_KEYS` = count, zoom, background) mirrored. Off: each layout keeps its own copy in `state.layoutShared` and they swap on layout switch. Re-linking re-seeds both stashes from the active layout.
 - **Per-layout Load defaults**: line keeps the historical preset (count 15); ring loads its designed preset (25 icons, zoom 48, radius 65, speed 3, depth 16, blur 16, fade 46, intro off, interaction off, solid white). Never mirrored by the link.
 
+### Frame-scrub stills (post-v2.1.0)
+
+PNG and still SVG can capture *any* exact frame, not just the settled one. Flow: **Pause Animation** (`btn-pause-anim`) → the stage enters scrub mode → **mouse-wheel or horizontal click-drag** over the stage moves the frame; export PNG/SVG grabs whatever's showing.
+
+- `scrubPaused` (bool) gates it. Adds `.scrub-paused` to `#app` (ew-resize cursor, `touch-action: none`). The ring rAF freezes while scrubbing (the wheel drives the angle instead).
+- **Line**: `scrubLineT` = ms into the active segment (starts at the settled frame `getSegmentTotalDuration`). Wheel step `LINE_SCRUB_STEP = 40` ms; `renderLineFrameAt(localT)` repaints.
+- **Ring**: wheel step `RING_SCRUB_STEP = 2.5` degrees of orbit angle.
+- Drag scrubbing is **absolute** (`scrubDragStart` / drag delta → frame), so a drag maps position → frame rather than accumulating.
+
+### Animated aspect-ratio morphing (post-v2.1.0)
+
+Switching aspect ratio now **tweens** the stage instead of snapping (live-preview nicety only — exports are untouched). Entry point `morphToAspect(ar)`; `applyAspectRatio(ar)` is still the instant path and is used directly when reduced-motion is set or nothing needs to move.
+
+- **Strategy**: commit the real change first (so target geometry is readable from the DOM), then replay the visual *from* the old geometry *back to* the new over **~420 ms** with `cubic-bezier(0.4, 0.14, 0.3, 1)`.
+- **Line** (`morphToAspect`): lerps stage width/height/scale, per-slot icon size, and row gap. Icons the new (smaller) ratio can't fit are snapshotted as `.morph-ghost` divs that fade + shrink out. Settles with `renderStage(true)`.
+- **Ring** (`morphRingToAspect`): the ring loop already repositions every icon each frame, so it only tweens the stage dims (via `ringMorphCanvas`, read by `getCanvas()`/`applyZoom()`) and the four auto shape params (radius/tilt/angle/size). Dropped orbs fade as ghosts too.
+- Respects `prefers-reduced-motion` (falls back to the instant `applyAspectRatio`). `aspectMorphRAF` holds the in-flight rAF so a rapid re-switch cancels cleanly.
+
+### Mobile layout prototype (post-v2.1.0, experimental)
+
+A first pass at phones, gated entirely behind `@media (max-width: 640px)` — **desktop layout is untouched**. Marked a *prototype*; not yet polished.
+
+- The stage fills the top; the control panel becomes a **bottom sheet** that peeks as a grab handle (`#sheetHandle`, "Tap for settings") and slides up on tap. Toggle is a single `classList.toggle('sheet-open')` on `#app`.
+- The segment timeline is hidden on mobile (too cramped); the floating bottom bar stacks vertically and fades out while the sheet is open.
+- CSS `!important` overrides beat the inline top/left/transform the desktop dock JS writes. Touch-friendly min sizes on buttons/selects.
+- Engine, animations, and exports are unchanged on mobile.
+
 ## Migrations in `restore()`
 
 Existing `localStorage` saves get migrated:
@@ -235,19 +271,25 @@ Existing `localStorage` saves get migrated:
 - Missing `aspectRatio` → inferred from old resolution string
 - Missing `auto` key → all auto flags set to `false` (preserve existing manual values)
 - **v2.0.0**: missing `segments` → built from defaults; legacy top-level `duration`/`stagger`/etc. migrated into `segments.logosIn`. Missing `segmentPauses` → defaulted to `{ logosInToOut: 0.5, logosOutToA8cIn: 0.5, a8cInToOut: 0.5 }`. `reverseOrder` missing on any segment → false. `a8cScale > 80` clamped to 80 (the slider tightened from 40–200 to 10–80 in v2.0.0).
+- **Post-v2.1.0**: missing/invalid `videoQuality` → `'high'` (`restore()` guards `if (!QUALITY_PRESETS[state.videoQuality]) state.videoQuality = 'high'`).
 
 ## What's done
 
-All export formats work offline. Four-segment timeline (Logos Intro / Logos Outro / A8C Intro / A8C Outro) with per-segment animation panels. Auto mode for all 5 animation params per segment + Overall Control buttons (active segment scope). AUTOMATTIC wordmark split into 10 letter elements rendered with natural source-SVG spacing. Inter-segment pauses (0–10s) honored by both live PLAY ALL and export sequencer. Export range selector (1/2/3/4/ALL) feeds sequencer that swaps content/params/direction per segment. PLAY SEGMENT / LOOP SEGMENT / PLAY ALL. Order of movement toggle on outros. A8C scale slider (10–80) in its own section. 4× supersampled export rendering with halving downsample + 6× SVG bitmap raster + padding for AA fringe. Removed Quality dropdown (always top-tier). Six aspect ratios with 18-icon cap on vertical/square. ~300 KB single-file HTML. Live on GitHub Pages.
+All export formats work offline. Four-segment timeline (Logos Intro / Logos Outro / A8C Intro / A8C Outro) with per-segment animation panels. Auto mode for all 5 animation params per segment + Overall Control buttons (active segment scope). AUTOMATTIC wordmark split into 10 letter elements rendered with natural source-SVG spacing. Inter-segment pauses (0–10s) honored by both live PLAY ALL and export sequencer. Export range selector (1/2/3/4/ALL) feeds sequencer that swaps content/params/direction per segment. PLAY SEGMENT / LOOP SEGMENT / PLAY ALL. Order of movement toggle on outros. A8C scale slider (10–80) in its own section. 4× supersampled export rendering with halving downsample + 6× SVG bitmap raster + padding for AA fringe. Six aspect ratios with 18-icon cap on vertical/square. ~387 KB single-file HTML. Live on GitHub Pages.
 
 **v2.1.0 adds:** Ring layout mode with full export support (one-revolution seamless loops), three live interactions (hover+spread / ripple / drag-to-spin), optional staggered intro, gradient backgrounds across all renderers, layout link toggle with per-layout setting stashes, per-layout Load defaults, Export Interactive HTML, and the export-DoF quantization fix.
 
+**Post-v2.1.0 (unreleased, on `main`):** Export-panel overhaul — Motion/Stills split, **Web/High/Max video quality presets** back, **frame-scrub stills** (pause → wheel/drag → PNG/SVG of any exact frame), **still SVG** (single-frame vector, DoF baked as native SVG filters in Ring), and **GIF export removed**. **Animated aspect-ratio morphing** (Line + Ring, ~420ms, reduced-motion aware). Panel UI polish (neutral surfaces, hidden scrollbar, scroll masking). **Mobile bottom-sheet prototype** (≤640px, desktop untouched).
+
 ## What's pending or open
 
-- **Animated SVG full-sequence export** — currently exportSVG renders only the active segment. Adding multi-segment concatenated keyframes is doable but non-trivial (needs careful timeline math for SMIL animation timing) and was deprioritized for v2.0.0.
+- **Animated (multi-frame) SVG export** — the SVG exporter now emits a **static single-frame still**, not the old SMIL animation. A full-sequence animated SVG (concatenated keyframes with correct SMIL timing) remains unimplemented and non-trivial.
+- **Mobile layout is a prototype** — functional bottom-sheet pass behind `@media (max-width: 640px)`, but unpolished; needs real-device testing and refinement before it's called done.
+- **Remove dead `gifenc`** — inlined but unused since GIF export was cut; ~9 KB of dead weight that could be dropped.
 - **Per-letter A8C overrides** — every A8C letter currently animates with the same segment params. Per-letter offset/easing overrides would be a nice-to-have for fine-tuned wordmark choreography.
 - **Node.js 20 deprecation warning** in the GitHub Actions workflow — should be fixed by June 2, 2026 (update `actions/checkout`, `actions/configure-pages` etc. to versions supporting Node 24).
 - **Known limits**: MP4 won't preserve transparency (H.264); WebCodecs MP4 only works in Chromium + Safari 16.4+; Firefox lacks WebCodecs.
+- **Version not yet cut** — `APP_VERSION` is still `'v2.1'` despite the unreleased work above. Bump it + tag a release (v2.2.0?) when this batch ships, and move the CHANGELOG **Unreleased** section under the new version.
 
 ## Conventions Claude should follow when iterating
 

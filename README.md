@@ -192,7 +192,7 @@ Format: `product-logos-slide-tool_<resolution>_<app-version>.<ext>`
 
 ## Architecture
 
-Single HTML file (~360 KB), three inlined script blocks:
+Single HTML file (~385 KB), three inlined script blocks:
 1. `gifenc` (~9 KB) — GIF encoder, retained from earlier versions (GIF export has since been removed)
 2. `mp4-muxer` (~73 KB) — MP4 container muxer
 3. App code — UI, animation, both layout engines, sequencer, export pipeline

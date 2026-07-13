@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+Landed on `main` after the v2.1.0 tag; `APP_VERSION` is still `v2.1` (no release cut yet). An export-panel overhaul, animated aspect morphing, UI polish, and a mobile prototype.
+
+### Added
+
+- **Video quality presets** are back. A **Quality** dropdown for MP4/WebM with three presets driven by `state.videoQuality`: **Web (small)** (`videoBpp 0.010`, keyframe every 2s), **High** *(default)* (`0.030`, every 2s), **Max (lossless)** (`1.000`, every frame a keyframe). Bitrate = `max(2 Mbps, w·h·fps·videoBpp)`.
+- **Frame-accurate stills.** A **Pause Animation** toggle puts the stage into scrub mode; **mouse-wheel or horizontal click-drag** across the stage moves the frame (Ring → orbit angle at 2.5°/notch, Line → segment time at 40ms/notch). PNG and SVG then export that exact frame. Drag scrubbing is absolute (position → frame).
+- **Still SVG export.** The SVG exporter now produces a **single-frame vector still**: each icon nested as a static `<svg>` mapped into export space. In **Ring** mode the depth-of-field blur is **baked in as native `<feGaussianBlur>` filters**, so the still matches the on-screen DoF while staying scalable.
+- **Animated aspect-ratio morphing** (live preview only; exports unchanged). Switching aspect ratio tweens the stage over ~420ms with `cubic-bezier(0.4, 0.14, 0.3, 1)` instead of snapping. Line lerps stage/icon/gap geometry; Ring tweens stage dims + the four auto shape params and lets the orbit reshape itself. Icons the new ratio can't fit fade out as ghosts. Respects `prefers-reduced-motion` (falls back to the instant path).
+- **Mobile layout prototype** (`@media (max-width: 640px)`, desktop untouched). Stage fills the top; the control panel becomes a **bottom sheet** that peeks as a grab handle and slides up on tap. Timeline hidden on phones; bottom bar stacks and fades out while the sheet is open; touch-friendly control sizes. Marked experimental.
+
+### Changed
+
+- **Export panel** reorganized into **Motion** (WebM / MP4 / Interactive HTML) and **Stills** (PNG / SVG).
+- Panel UI polish: neutral surfaces, hidden scrollbar, scroll masking.
+
+### Removed
+
+- **GIF export.** The Motion panel no longer offers GIF; `exportGIF` is gone. The inlined `gifenc` library remains but is now unused (dead code, candidate for future removal).
+- The previous **animated (SMIL) SVG** export — the SVG output is now a static still (see Added). Full-sequence animated SVG remains unimplemented.
+
 ## [2.1.0] — 2026-06-12
 
 The **Ring layout** release. A second stage layout — a continuous 3D orbit with depth-of-field — alongside the classic line, with its own interactions, exports, and defaults.
