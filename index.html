@@ -1021,22 +1021,32 @@
   /* ── v2.2 onboarding: first-run Welcome fork + persistent help button ────── */
   /* First-run backdrop: an opaque ground (so the live UI is hidden, not just
      blurred) + a drifting 45° accent grid + a scrim to keep the modal the thing
-     your eye lands on. Grid: 56px tile, 25% ink — texture, not decoration. */
-  .welcome-modal {
+     your eye lands on. Grid: 56px tile, 25% ink — texture, not decoration.
+     Sits at z 99, just under the modals (100), and spans the whole intro flow. */
+  #introBackdrop {
+    position: fixed; inset: 0; z-index: 99;
     background: var(--app-bg);
+    display: none; pointer-events: none;
+  }
+  body.intro-backdrop #introBackdrop { display: block; }
+  .welcome-pattern {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    opacity: 0.25;
+  }
+  .welcome-pattern path { stroke: var(--accent); stroke-width: 1.4; fill: none; }
+  .welcome-scrim { position: absolute; inset: 0; background: var(--welcome-scrim); }
+
+  /* While the intro backdrop is up, the onboarding modals drop their own overlay
+     + blur — otherwise they'd frost the pattern we just put there. */
+  body.intro-backdrop .modal-bg.welcome-modal,
+  body.intro-backdrop .modal-bg.wizard-modal,
+  body.intro-backdrop .modal-bg.tutorial-modal {
+    background: transparent;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }
-  .welcome-pattern {
-    position: absolute; inset: 0; width: 100%; height: 100%;
-    z-index: 0; opacity: 0.25; pointer-events: none;
-  }
-  .welcome-pattern path { stroke: var(--accent); stroke-width: 1.4; fill: none; }
-  .welcome-scrim {
-    position: absolute; inset: 0; z-index: 1; pointer-events: none;
-    background: var(--welcome-scrim);
-  }
-  .welcome-modal .modal { width: 460px; position: relative; z-index: 2; }
+
+  .welcome-modal .modal { width: 460px; }
   .welcome-fork {
     display: flex;
     flex-direction: column;
@@ -2340,12 +2350,12 @@
 <div class="rec-indicator" id="recIndicator">REC <span id="recTime">0.0s</span></div>
 <div class="toast" id="toast"></div>
 
-<!-- v2.2 onboarding: first-run Welcome fork (wizard / tutorial / just start).
-     A first-time visitor gets a drifting grid pattern instead of a live-but-
-     untouchable UI behind the modal. Only ever built while this modal is open,
-     so returning users never pay for it. -->
-<div class="modal-bg welcome-modal" id="welcomeModal">
-  <svg class="welcome-pattern" id="welcomePattern" aria-hidden="true">
+<!-- First-run backdrop. Sits below the onboarding modals (z 99 vs 100) and stays
+     up for the WHOLE intro flow — Welcome, Setup Assistant and tutorial alike —
+     so the user never drops back onto a live-but-untouchable UI mid-onboarding.
+     Only shown while body.intro-backdrop is set; torn down when the intro ends. -->
+<div id="introBackdrop" aria-hidden="true">
+  <svg class="welcome-pattern" id="welcomePattern">
     <defs>
       <pattern id="wpGrid" width="56" height="56" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
         <path d="M0 0 H56 M0 0 V56" />
@@ -2353,7 +2363,11 @@
     </defs>
     <rect width="100%" height="100%" fill="url(#wpGrid)" />
   </svg>
-  <div class="welcome-scrim" aria-hidden="true"></div>
+  <div class="welcome-scrim"></div>
+</div>
+
+<!-- v2.2 onboarding: first-run Welcome fork (wizard / tutorial / just start) -->
+<div class="modal-bg welcome-modal" id="welcomeModal">
   <div class="modal">
     <h3>Welcome</h3>
     <p class="sub">How would you like to start?</p>
@@ -8479,14 +8493,23 @@ function startWelcomeDrift() {
 function stopWelcomeDrift() {
   if (welcomeDriftRAF) { cancelAnimationFrame(welcomeDriftRAF); welcomeDriftRAF = null; }
 }
-function openWelcome() {
-  document.getElementById('welcomeModal').classList.add('open');
+// The intro backdrop spans the WHOLE first-run flow — Welcome, Setup Assistant,
+// tutorial — so the user never drops back onto a live-but-untouchable UI between
+// steps. It goes up once and comes down only when they actually land in the tool.
+let introFlow = false;
+function startIntro() {
+  introFlow = true;
+  document.body.classList.add('intro-backdrop');
   startWelcomeDrift();
 }
-function closeWelcome() {
+function endIntro() {
+  if (!introFlow) return;
+  introFlow = false;
+  document.body.classList.remove('intro-backdrop');
   stopWelcomeDrift();
-  document.getElementById('welcomeModal').classList.remove('open');
 }
+function openWelcome() { document.getElementById('welcomeModal').classList.add('open'); }
+function closeWelcome() { document.getElementById('welcomeModal').classList.remove('open'); }
 
 // ── Setup wizard ─────────────────────────────────────────────────────────────
 // Role (light touch) → use-case (drives settings) → tweaks (brands / background /
@@ -8569,7 +8592,11 @@ function openWizard() {
   document.getElementById('wizardModal').classList.add('open');
   renderWizard();
 }
-function closeWizard() { destroyWizThumbs(); document.getElementById('wizardModal').classList.remove('open'); }
+function closeWizard() {
+  destroyWizThumbs();
+  document.getElementById('wizardModal').classList.remove('open');
+  endIntro(); // no-op unless this was the first-run flow
+}
 
 // ── Animated step-3 layout thumbnails ────────────────────────────────────────
 // Both are standalone code (no Lottie dependency). Line = 5 dots in a row, each
@@ -8965,6 +8992,7 @@ function openTutorial() {
 function closeTutorial() {
   document.getElementById('tutorialModal').classList.remove('open');
   if (!state.tutorialSeen) { state.tutorialSeen = true; persist(); }
+  endIntro(); // no-op unless this was the first-run flow
 }
 
 // Renders the step's clip, or a placeholder until one is supplied.
@@ -9011,13 +9039,15 @@ function tutBack() { if (tutStep > 0) { tutStep--; renderTutorial(); } }
 
 function bindOnboarding() {
   const wm = document.getElementById('welcomeModal');
+  // Handing off to the assistant or the tutorial keeps the intro backdrop up —
+  // only "Just start" (or dismissing) drops the user into the tool.
   document.getElementById('btn-welcome-wizard').onclick   = () => { markOnboarded(); closeWelcome(); openWizard(); };
   document.getElementById('btn-welcome-tutorial').onclick = () => { markOnboarded(); closeWelcome(); openTutorial(); };
-  document.getElementById('btn-welcome-skip').onclick     = () => { markOnboarded(); closeWelcome(); };
+  document.getElementById('btn-welcome-skip').onclick     = () => { markOnboarded(); closeWelcome(); endIntro(); };
   // Dismiss (backdrop click or Esc) counts as "Just start".
-  wm.addEventListener('click', (e) => { if (e.target === wm) { markOnboarded(); closeWelcome(); } });
+  wm.addEventListener('click', (e) => { if (e.target === wm) { markOnboarded(); closeWelcome(); endIntro(); } });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && wm.classList.contains('open')) { markOnboarded(); closeWelcome(); }
+    if (e.key === 'Escape' && wm.classList.contains('open')) { markOnboarded(); closeWelcome(); endIntro(); }
   });
   document.getElementById('btnHowItWorks').onclick = () => openTutorial();
   document.getElementById('btn-open-wizard').onclick = () => openWizard();
@@ -9069,7 +9099,7 @@ function boot() {
     updateBgIndicator();
   });
   // First-time visitors (no saved state → onboarded still false) get the Welcome fork.
-  if (!state.onboarded) openWelcome();
+  if (!state.onboarded) { startIntro(); openWelcome(); }
 }
 
 boot();
