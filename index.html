@@ -8,6 +8,7 @@
   /* === THEMING === */
   :root[data-theme="light"] {
     --app-bg: #ededed;
+    --welcome-scrim: rgba(237, 237, 237, 0.55);
     --stage-bg: #f0f0f0;
     --stage-border: #d8d8dc;
     --panel-bg: #fcfcfc;
@@ -42,6 +43,7 @@
   }
   :root[data-theme="dark"] {
     --app-bg: #0e0e10;
+    --welcome-scrim: rgba(14, 14, 16, 0.58);
     --stage-bg: #131315;
     --stage-border: #2a2a2e;
     --panel-bg: #1c1c1e;
@@ -1017,6 +1019,33 @@
   }
 
   /* ── v2.2 onboarding: first-run Welcome fork + persistent help button ────── */
+  /* First-run backdrop: an opaque ground (so the live UI is hidden, not just
+     blurred) + a drifting 45° accent grid + a scrim to keep the modal the thing
+     your eye lands on. Grid: 56px tile, 25% ink — texture, not decoration.
+     Sits at z 99, just under the modals (100), and spans the whole intro flow. */
+  #introBackdrop {
+    position: fixed; inset: 0; z-index: 99;
+    background: var(--app-bg);
+    display: none; pointer-events: none;
+  }
+  body.intro-backdrop #introBackdrop { display: block; }
+  .welcome-pattern {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    opacity: 0.25;
+  }
+  .welcome-pattern path { stroke: var(--accent); stroke-width: 1.4; fill: none; }
+  .welcome-scrim { position: absolute; inset: 0; background: var(--welcome-scrim); }
+
+  /* While the intro backdrop is up, the onboarding modals drop their own overlay
+     + blur — otherwise they'd frost the pattern we just put there. */
+  body.intro-backdrop .modal-bg.welcome-modal,
+  body.intro-backdrop .modal-bg.wizard-modal,
+  body.intro-backdrop .modal-bg.tutorial-modal {
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
   .welcome-modal .modal { width: 460px; }
   .welcome-fork {
     display: flex;
@@ -1084,6 +1113,39 @@
     background: rgba(255, 255, 255, 0.25);
     font-weight: 700;
   }
+
+  /* ── Panel tier (Essentials / Advanced) ─────────────────────────────────── */
+  .tier-switch {
+    display: flex; gap: 2px; margin: 0 9px 8px; padding: 3px;
+    background: var(--button-secondary-bg);
+    border: 1px solid var(--button-secondary-border);
+    border-radius: 999px;
+  }
+  .tier-switch button {
+    flex: 1; background: transparent; border: none; cursor: pointer;
+    font-family: inherit; font-size: 11px; font-weight: 600; letter-spacing: 0.05em;
+    color: var(--text-secondary); padding: 6px 8px; border-radius: 999px;
+    transition: background 0.14s ease, color 0.14s ease;
+  }
+  .tier-switch button:hover { color: var(--text); }
+  .tier-switch button.active { background: var(--accent); color: var(--accent-text); }
+
+  /* Anything tiered "advanced" is hidden until the panel is in Advanced. Works at
+     both section level and individual control-row level. */
+  .panel-content:not(.adv) [data-tier="advanced"] { display: none !important; }
+
+  /* AUTO summary — replaces a stack of greyed-out sliders with one honest line.
+     Only meaningful in Essentials; in Advanced the real sliders are on show. */
+  .panel-content.adv .auto-note { display: none !important; }
+  .auto-note {
+    display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap;
+    margin: 2px 0 0; font-size: 11.5px; line-height: 1.45; color: var(--text-tertiary);
+  }
+  .auto-note button {
+    background: none; border: none; padding: 0; cursor: pointer;
+    font-family: inherit; font-size: 11.5px; font-weight: 600; color: var(--accent);
+  }
+  .auto-note button:hover { text-decoration: underline; }
 
   /* Recall entry point — reopens the setup wizard from the panel. */
   .panel-setup-btn {
@@ -1304,6 +1366,12 @@
     padding: 2px;
     gap: 2px;
   }
+  /* Motion panel segment selector — 4 pills have to fit the panel width, so they
+     run tighter than the 2-up toggles. Full-width row above the motion sliders. */
+  .motion-seg-row { justify-content: stretch; }
+  .motion-seg { display: flex; width: 100%; }
+  .motion-seg button { flex: 1; min-width: 0; padding: 5px 3px; font-size: 10px; letter-spacing: 0; white-space: nowrap; }
+
   .seg-toggle button {
     background: transparent;
     color: var(--text-secondary);
@@ -1504,6 +1572,7 @@
   .section[data-ring-only] { display: none; }
   .app[data-layout="ring"] .section[data-ring-only] { display: block; }
   .app[data-layout="ring"] .section[data-section="a8c"],
+  .app[data-layout="ring"] .section[data-section="motion-feel"],
   .app[data-layout="ring"] .section[data-segment],
   .app[data-layout="ring"] .ctrl[data-auto-key="spacing"],
   .app[data-layout="ring"] .ctrl[data-auto-key="scale"],
@@ -1711,6 +1780,13 @@
         Setup Assistant
       </button>
 
+      <!-- Panel tier. Essentials shows the handful of decisions a user actually makes;
+           Advanced reveals every control. Remembered per user (state.panelTier). -->
+      <div class="tier-switch" id="tierSwitch">
+        <button type="button" data-tier-btn="essentials" class="active">Essentials</button>
+        <button type="button" data-tier-btn="advanced">Advanced</button>
+      </div>
+
       <div class="section open" data-section="layout">
         <div class="section-header" data-toggle>
           <h2>Layout</h2>
@@ -1733,7 +1809,7 @@
         </div>
       </div>
 
-      <div class="section open" data-section="control">
+      <div class="section open" data-section="control" data-tier="advanced">
         <div class="section-header" data-toggle>
           <h2>Control</h2>
           <span class="chev">›</span>
@@ -1767,7 +1843,13 @@
             </div>
             <input type="text" class="val" id="v-count" value="15" data-min="2" data-max="25" data-step="1">
           </div>
-          <div class="ctrl" data-auto-key="spacing">
+          <!-- Shown in Essentials while AUTO is on: says what the tool is doing for
+               you, instead of six greyed-out sliders. "Customise" hands over control. -->
+          <p class="auto-note" id="autoNote" hidden>
+            <span id="autoNoteText">Spacing &amp; scale sized automatically</span>
+            <button type="button" id="btn-auto-customise">Customise</button>
+          </p>
+          <div class="ctrl" data-tier="advanced" data-auto-key="spacing">
             <div class="ctrl-label"><span class="name">Spacing</span><button class="auto-toggle" type="button">AUTO</button></div>
             <div class="slider">
               <div class="bar"></div>
@@ -1776,7 +1858,7 @@
             </div>
             <input type="text" class="val" id="v-spacing" value="10" data-min="0" data-max="40" data-step="1">
           </div>
-          <div class="ctrl" data-auto-key="scale">
+          <div class="ctrl" data-tier="advanced" data-auto-key="scale">
             <div class="ctrl-label"><span class="name">Scale</span><button class="auto-toggle" type="button">AUTO</button></div>
             <div class="slider">
               <div class="bar"></div>
@@ -1785,7 +1867,7 @@
             </div>
             <input type="text" class="val" id="v-scale" value="100" data-min="40" data-max="200" data-step="1">
           </div>
-          <div class="ctrl">
+          <div class="ctrl" data-tier="advanced">
             <label>Zoom</label>
             <div class="slider">
               <div class="bar"></div>
@@ -1806,17 +1888,17 @@
           <span class="chev">›</span>
         </div>
         <div class="section-body">
-          <div class="ctrl">
+          <div class="ctrl" data-tier="advanced">
             <label>Radius</label>
             <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringradius" min="20" max="95" step="1" value="70"></div>
             <input type="text" class="val" id="v-ringradius" value="70" data-min="20" data-max="95" data-step="1">
           </div>
-          <div class="ctrl">
+          <div class="ctrl" data-tier="advanced">
             <label>Tilt</label>
             <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringtilt" min="5" max="100" step="1" value="32"></div>
             <input type="text" class="val" id="v-ringtilt" value="32" data-min="5" data-max="100" data-step="1">
           </div>
-          <div class="ctrl">
+          <div class="ctrl" data-tier="advanced">
             <label>Angle</label>
             <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringangle" min="-90" max="90" step="1" value="-18"></div>
             <input type="text" class="val" id="v-ringangle" value="-18" data-min="-90" data-max="90" data-step="1">
@@ -1833,39 +1915,39 @@
               <button class="overall-btn" id="btn-ringdir-rev" type="button">REVERSE</button>
             </div>
           </div>
-          <div class="ctrl">
+          <div class="ctrl" data-tier="advanced">
             <label>Icon Size</label>
             <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringsize" min="4" max="30" step="1" value="12"></div>
             <input type="text" class="val" id="v-ringsize" value="12" data-min="4" data-max="30" data-step="1">
           </div>
-          <div class="ctrl">
+          <div class="ctrl" data-tier="advanced">
             <label>Depth Scale</label>
             <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringdepth" min="0" max="90" step="1" value="55"></div>
             <input type="text" class="val" id="v-ringdepth" value="55" data-min="0" data-max="90" data-step="1">
           </div>
-          <div class="ctrl">
+          <div class="ctrl" data-tier="advanced">
             <label>Blur (DoF)</label>
             <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringblur" min="0" max="20" step="1" value="8"></div>
             <input type="text" class="val" id="v-ringblur" value="8" data-min="0" data-max="20" data-step="1">
           </div>
-          <div class="ctrl">
+          <div class="ctrl" data-tier="advanced">
             <label>Fade Back</label>
             <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringfade" min="0" max="90" step="1" value="45"></div>
             <input type="text" class="val" id="v-ringfade" value="45" data-min="0" data-max="90" data-step="1">
           </div>
-          <div class="ctrl-row">
+          <div class="ctrl-row" data-tier="advanced">
             <span class="name">Intro</span>
             <div class="overall-buttons" id="ringIntroButtons">
               <button class="overall-btn" id="btn-ringintro-on" type="button">ON</button>
               <button class="overall-btn active" id="btn-ringintro-off" type="button">OFF</button>
             </div>
           </div>
-          <div class="ctrl">
+          <div class="ctrl" data-tier="advanced">
             <label>Intro Duration</label>
             <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringintroms" min="200" max="4000" step="100" value="1200"></div>
             <input type="text" class="val" id="v-ringintroms" value="1200" data-min="200" data-max="4000" data-step="100">
           </div>
-          <div class="ctrl">
+          <div class="ctrl" data-tier="advanced">
             <label>Intro Stagger</label>
             <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-ringintrostagger" min="0" max="200" step="5" value="40"></div>
             <input type="text" class="val" id="v-ringintrostagger" value="40" data-min="0" data-max="200" data-step="5">
@@ -1873,7 +1955,7 @@
         </div>
       </div>
 
-      <div class="section open" data-section="ring-interaction" data-ring-only>
+      <div class="section open" data-section="ring-interaction" data-tier="advanced" data-ring-only>
         <div class="section-header" data-toggle>
           <h2>Interaction</h2>
           <span class="chev">›</span>
@@ -1936,7 +2018,7 @@
       <!-- A8C wordmark — lives in its own section because the wordmark has built-in
            letter spacing and only needs an overall scale. Spacing/Icons-count from
            Composition apply only to the logo icons, not to A8C. -->
-      <div class="section open" data-section="a8c">
+      <div class="section open" data-section="a8c" data-tier="advanced">
         <div class="section-header" data-toggle>
           <h2>A8C</h2>
           <span class="chev">›</span>
@@ -1954,12 +2036,31 @@
         </div>
       </div>
 
-      <div class="section open" data-section="animate-in" data-segment="logosIn">
+      <!-- Contextual Motion panel — edits whichever segment is active (set from the
+           timeline or the selector below). data-segment is retargeted at runtime by
+           applyMotionPanelUI(); the sliders keep their legacy IDs and write through
+           the top-level mirror, which persist() syncs into state.segments[active]. -->
+      <div class="section open" data-section="animate-in" data-tier="advanced" data-segment="logosIn">
         <div class="section-header" data-toggle>
-          <h2>Animate IN</h2>
+          <h2>Motion</h2>
           <span class="chev">›</span>
         </div>
         <div class="section-body">
+          <div class="row motion-seg-row">
+            <div class="seg-toggle motion-seg" id="motionSeg">
+              <button type="button" data-mseg="logosIn" class="active">In</button>
+              <button type="button" data-mseg="logosOut">Out</button>
+              <button type="button" data-mseg="a8cIn">A8C in</button>
+              <button type="button" data-mseg="a8cOut">A8C out</button>
+            </div>
+          </div>
+          <div class="row order-row" id="motionOrderRow" hidden>
+            <label>Order of movement</label>
+            <div class="seg-toggle order-toggle" id="motionOrder">
+              <button type="button" data-order="default" class="active">Inner first</button>
+              <button type="button" data-order="reversed">Outer first</button>
+            </div>
+          </div>
           <div class="ctrl" data-auto-key="duration">
             <div class="ctrl-label"><span class="name">Speed</span><button class="auto-toggle" type="button">AUTO</button></div>
             <div class="slider">
@@ -2022,146 +2123,25 @@
         </div>
       </div>
 
-      <!-- Three additional animation segments. Same structure as Animate IN but each
-           has its own slider IDs and writes to state.segments[<segment>]. Collapsed
-           by default per the spec. -->
-      <div class="section" data-section="animate-out" data-segment="logosOut">
+
+      <!-- Essentials-level motion control. One choice instead of 20 sliders; the
+           per-segment detail lives in the Motion panel under Advanced. Line only —
+           Ring's motion is its Speed/Direction, which sit in the Ring section. -->
+      <div class="section open" data-section="motion-feel">
         <div class="section-header" data-toggle>
-          <h2>Animate OUT</h2>
+          <h2>Motion</h2>
           <span class="chev">›</span>
         </div>
         <div class="section-body">
-          <div class="row">
-            <label>Order of movement</label>
-            <div class="seg-toggle order-toggle" data-order-seg="logosOut">
-              <button type="button" data-order="default" class="active">Inner first</button>
-              <button type="button" data-order="reversed">Outer first</button>
+          <div class="ctrl-row">
+            <span class="name">Feel</span>
+            <div class="seg-toggle feel-toggle" id="feelToggle">
+              <button type="button" data-feel="calm">Calm</button>
+              <button type="button" data-feel="balanced" class="active">Balanced</button>
+              <button type="button" data-feel="snappy">Snappy</button>
             </div>
           </div>
-          <div class="ctrl" data-auto-key="duration">
-            <div class="ctrl-label"><span class="name">Speed</span><button class="auto-toggle" type="button">AUTO</button></div>
-            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-logosout-duration" min="200" max="3000" step="50" value="700"></div>
-            <input type="text" class="val" id="v-logosout-duration" value="0.7s" data-format="seconds">
-          </div>
-          <div class="ctrl" data-auto-key="stagger">
-            <div class="ctrl-label"><span class="name">Stagger</span><button class="auto-toggle" type="button">AUTO</button></div>
-            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-logosout-stagger" min="0" max="100" step="1" value="20"></div>
-            <input type="text" class="val" id="v-logosout-stagger" value="20" data-min="0" data-max="100" data-step="1">
-          </div>
-          <div class="ctrl" data-auto-key="slideDistance">
-            <div class="ctrl-label"><span class="name">Slide dist.</span><button class="auto-toggle" type="button">AUTO</button></div>
-            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-logosout-slide" min="-50" max="50" step="1" value="0"></div>
-            <input type="text" class="val" id="v-logosout-slide" value="0" data-min="-50" data-max="50" data-step="1">
-          </div>
-          <div class="ctrl" data-auto-key="startScale">
-            <div class="ctrl-label"><span class="name">Start scale</span><button class="auto-toggle" type="button">AUTO</button></div>
-            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-logosout-startscale" min="0" max="100" step="5" value="40"></div>
-            <input type="text" class="val" id="v-logosout-startscale" value="40" data-min="0" data-max="100" data-step="5">
-          </div>
-          <div class="row" data-auto-key="easing">
-            <div class="ctrl-label" style="flex: none; width: 78px;"><span class="name">Easing</span><button class="auto-toggle" type="button">AUTO</button></div>
-            <select id="s-logosout-easing">
-              <option value="__auto__" selected>Auto (Original)</option>
-              <option value="cubic-bezier(0.28, 0, 0, 1)">Original</option>
-              <option value="linear">Linear</option>
-              <optgroup label="Standard">
-                <option value="cubic-bezier(0.42, 0, 1, 1)">Ease in</option>
-                <option value="cubic-bezier(0, 0, 0.58, 1)">Ease out</option>
-                <option value="cubic-bezier(0.42, 0, 0.58, 1)">Ease in and out</option>
-              </optgroup>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <div class="section" data-section="a8c-in" data-segment="a8cIn">
-        <div class="section-header" data-toggle>
-          <h2>A8C Intro</h2>
-          <span class="chev">›</span>
-        </div>
-        <div class="section-body">
-          <div class="ctrl" data-auto-key="duration">
-            <div class="ctrl-label"><span class="name">Speed</span><button class="auto-toggle" type="button">AUTO</button></div>
-            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-a8cin-duration" min="200" max="3000" step="50" value="700"></div>
-            <input type="text" class="val" id="v-a8cin-duration" value="0.7s" data-format="seconds">
-          </div>
-          <div class="ctrl" data-auto-key="stagger">
-            <div class="ctrl-label"><span class="name">Stagger</span><button class="auto-toggle" type="button">AUTO</button></div>
-            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-a8cin-stagger" min="0" max="100" step="1" value="20"></div>
-            <input type="text" class="val" id="v-a8cin-stagger" value="20" data-min="0" data-max="100" data-step="1">
-          </div>
-          <div class="ctrl" data-auto-key="slideDistance">
-            <div class="ctrl-label"><span class="name">Slide dist.</span><button class="auto-toggle" type="button">AUTO</button></div>
-            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-a8cin-slide" min="-50" max="50" step="1" value="0"></div>
-            <input type="text" class="val" id="v-a8cin-slide" value="0" data-min="-50" data-max="50" data-step="1">
-          </div>
-          <div class="ctrl" data-auto-key="startScale">
-            <div class="ctrl-label"><span class="name">Start scale</span><button class="auto-toggle" type="button">AUTO</button></div>
-            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-a8cin-startscale" min="0" max="100" step="5" value="40"></div>
-            <input type="text" class="val" id="v-a8cin-startscale" value="40" data-min="0" data-max="100" data-step="5">
-          </div>
-          <div class="row" data-auto-key="easing">
-            <div class="ctrl-label" style="flex: none; width: 78px;"><span class="name">Easing</span><button class="auto-toggle" type="button">AUTO</button></div>
-            <select id="s-a8cin-easing">
-              <option value="__auto__" selected>Auto (Original)</option>
-              <option value="cubic-bezier(0.28, 0, 0, 1)">Original</option>
-              <option value="linear">Linear</option>
-              <optgroup label="Standard">
-                <option value="cubic-bezier(0.42, 0, 1, 1)">Ease in</option>
-                <option value="cubic-bezier(0, 0, 0.58, 1)">Ease out</option>
-                <option value="cubic-bezier(0.42, 0, 0.58, 1)">Ease in and out</option>
-              </optgroup>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <div class="section" data-section="a8c-out" data-segment="a8cOut">
-        <div class="section-header" data-toggle>
-          <h2>A8C Outro</h2>
-          <span class="chev">›</span>
-        </div>
-        <div class="section-body">
-          <div class="row">
-            <label>Order of movement</label>
-            <div class="seg-toggle order-toggle" data-order-seg="a8cOut">
-              <button type="button" data-order="default" class="active">Inner first</button>
-              <button type="button" data-order="reversed">Outer first</button>
-            </div>
-          </div>
-          <div class="ctrl" data-auto-key="duration">
-            <div class="ctrl-label"><span class="name">Speed</span><button class="auto-toggle" type="button">AUTO</button></div>
-            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-a8cout-duration" min="200" max="3000" step="50" value="700"></div>
-            <input type="text" class="val" id="v-a8cout-duration" value="0.7s" data-format="seconds">
-          </div>
-          <div class="ctrl" data-auto-key="stagger">
-            <div class="ctrl-label"><span class="name">Stagger</span><button class="auto-toggle" type="button">AUTO</button></div>
-            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-a8cout-stagger" min="0" max="100" step="1" value="20"></div>
-            <input type="text" class="val" id="v-a8cout-stagger" value="20" data-min="0" data-max="100" data-step="1">
-          </div>
-          <div class="ctrl" data-auto-key="slideDistance">
-            <div class="ctrl-label"><span class="name">Slide dist.</span><button class="auto-toggle" type="button">AUTO</button></div>
-            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-a8cout-slide" min="-50" max="50" step="1" value="0"></div>
-            <input type="text" class="val" id="v-a8cout-slide" value="0" data-min="-50" data-max="50" data-step="1">
-          </div>
-          <div class="ctrl" data-auto-key="startScale">
-            <div class="ctrl-label"><span class="name">Start scale</span><button class="auto-toggle" type="button">AUTO</button></div>
-            <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-a8cout-startscale" min="0" max="100" step="5" value="40"></div>
-            <input type="text" class="val" id="v-a8cout-startscale" value="40" data-min="0" data-max="100" data-step="5">
-          </div>
-          <div class="row" data-auto-key="easing">
-            <div class="ctrl-label" style="flex: none; width: 78px;"><span class="name">Easing</span><button class="auto-toggle" type="button">AUTO</button></div>
-            <select id="s-a8cout-easing">
-              <option value="__auto__" selected>Auto (Original)</option>
-              <option value="cubic-bezier(0.28, 0, 0, 1)">Original</option>
-              <option value="linear">Linear</option>
-              <optgroup label="Standard">
-                <option value="cubic-bezier(0.42, 0, 1, 1)">Ease in</option>
-                <option value="cubic-bezier(0, 0, 0.58, 1)">Ease out</option>
-                <option value="cubic-bezier(0.42, 0, 0.58, 1)">Ease in and out</option>
-              </optgroup>
-            </select>
-          </div>
+          <p class="hint" id="feelHint">Sets the pace across all four segments. Tune each one individually under Advanced.</p>
         </div>
       </div>
 
@@ -2195,7 +2175,7 @@
               <input type="color" id="bg-color" value="#ffffff">
             </label>
           </div>
-          <div class="row" id="bgColorBRow">
+          <div class="row" data-tier="advanced" id="bgColorBRow">
             <label>Color B</label>
             <label class="color-bubble">
               <span class="swatch" id="bg-swatch-b" style="background:#dfe3ff"></span>
@@ -2203,17 +2183,17 @@
               <input type="color" id="bg-color-b" value="#dfe3ff">
             </label>
           </div>
-          <div class="ctrl" id="bgAngleRow">
+          <div class="ctrl" data-tier="advanced" id="bgAngleRow">
             <label>Gradient Angle</label>
             <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-bgangle" min="0" max="360" step="1" value="135"></div>
             <input type="text" class="val" id="v-bgangle" value="135" data-min="0" data-max="360" data-step="1">
           </div>
-          <div class="ctrl" id="bgPosRow">
+          <div class="ctrl" data-tier="advanced" id="bgPosRow">
             <label>Gradient Center</label>
             <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-bgpos" min="0" max="100" step="1" value="50"></div>
             <input type="text" class="val" id="v-bgpos" value="50" data-min="0" data-max="100" data-step="1">
           </div>
-          <div class="ctrl" id="bgSpreadRow">
+          <div class="ctrl" data-tier="advanced" id="bgSpreadRow">
             <label>Gradient Spread</label>
             <div class="slider"><div class="bar"></div><div class="ticks"></div><input type="range" id="r-bgspread" min="10" max="100" step="1" value="100"></div>
             <input type="text" class="val" id="v-bgspread" value="100" data-min="10" data-max="100" data-step="1">
@@ -2222,7 +2202,7 @@
         </div>
       </div>
 
-      <div class="section open" data-section="library">
+      <div class="section open" data-section="library" data-tier="advanced">
         <div class="section-header" data-toggle>
           <h2>Icon library</h2>
           <span class="chev">›</span>
@@ -2247,18 +2227,18 @@
           <span class="chev">›</span>
         </div>
         <div class="section-body">
-          <div class="row">
+          <div class="row" data-tier="advanced">
             <label>Resolution</label>
             <select id="s-resolution"></select>
           </div>
-          <div class="row">
+          <div class="row" data-tier="advanced">
             <label>FPS</label>
             <select id="s-fps">
               <option value="30">30</option>
               <option value="60" selected>60</option>
             </select>
           </div>
-          <div class="row">
+          <div class="row" data-tier="advanced">
             <label>Quality</label>
             <select id="s-quality">
               <option value="web">Web (small)</option>
@@ -2266,7 +2246,7 @@
               <option value="max">Max (lossless)</option>
             </select>
           </div>
-          <div class="row">
+          <div class="row" data-tier="advanced">
             <label>Segments</label>
             <div class="seg-toggle" id="exportRange">
               <button type="button" data-range="1">1</button>
@@ -2296,7 +2276,7 @@
         </div>
       </div>
 
-      <div class="section open" data-section="project">
+      <div class="section open" data-section="project" data-tier="advanced">
         <div class="section-header" data-toggle>
           <h2>Project</h2>
           <span class="chev">›</span>
@@ -2370,6 +2350,22 @@
 <div class="rec-indicator" id="recIndicator">REC <span id="recTime">0.0s</span></div>
 <div class="toast" id="toast"></div>
 
+<!-- First-run backdrop. Sits below the onboarding modals (z 99 vs 100) and stays
+     up for the WHOLE intro flow — Welcome, Setup Assistant and tutorial alike —
+     so the user never drops back onto a live-but-untouchable UI mid-onboarding.
+     Only shown while body.intro-backdrop is set; torn down when the intro ends. -->
+<div id="introBackdrop" aria-hidden="true">
+  <svg class="welcome-pattern" id="welcomePattern">
+    <defs>
+      <pattern id="wpGrid" width="56" height="56" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+        <path d="M0 0 H56 M0 0 V56" />
+      </pattern>
+    </defs>
+    <rect width="100%" height="100%" fill="url(#wpGrid)" />
+  </svg>
+  <div class="welcome-scrim"></div>
+</div>
+
 <!-- v2.2 onboarding: first-run Welcome fork (wizard / tutorial / just start) -->
 <div class="modal-bg welcome-modal" id="welcomeModal">
   <div class="modal">
@@ -2377,7 +2373,7 @@
     <p class="sub">How would you like to start?</p>
     <div class="welcome-fork">
       <button class="welcome-choice primary" id="btn-welcome-wizard" type="button">
-        <span class="wc-title">Guided setup</span>
+        <span class="wc-title">Setup Assistant</span>
         <span class="wc-desc">Answer a few quick questions and we'll configure the tool for you.</span>
       </button>
       <button class="welcome-choice" id="btn-welcome-tutorial" type="button">
@@ -4461,6 +4457,12 @@ const state = {
   // they seen the tutorial? Both default false for a brand-new visitor; restore()
   // sets them true for anyone with existing saved state (don't re-onboard).
   onboarded: false, tutorialSeen: false,
+  // Panel tier: 'essentials' (the handful of decisions most users make) or
+  // 'advanced' (every control). Remembered per user — an expert flips it once.
+  panelTier: 'essentials',
+  // Essentials-level motion preset: 'calm' | 'balanced' | 'snappy' | 'custom'.
+  // Goes to 'custom' the moment a per-segment slider is hand-tuned.
+  motionFeel: 'balanced',
 };
 
 // Anchor table: tuned values for canonical icon counts. Auto values for any
@@ -4788,6 +4790,7 @@ function serializeState() {
     layout: state.layout, ring: state.ring,
     layoutLink: state.layoutLink, layoutShared: state.layoutShared,
     onboarded: state.onboarded, tutorialSeen: state.tutorialSeen,
+    panelTier: state.panelTier, motionFeel: state.motionFeel,
   };
 }
 function persist() {
@@ -4834,8 +4837,7 @@ function restoreHistorySnapshot(snap) {
   if (data.resolution) { state.resolution = data.resolution; populateResolutionDropdown(); }
   recomputeAuto();
   renderLibrary();
-  bindUIFromState();
-  document.querySelectorAll('.section[data-segment]').forEach(p => p.classList.toggle('open', p.dataset.segment === state.activeSegment));
+  bindUIFromState();  // applyMotionPanelUI() inside retargets the contextual Motion panel
   applyZoom();
   renderStage(true);
   persist();          // save restored state (recordHistory is suspended)
@@ -4967,6 +4969,8 @@ function restore() {
     // `typeof state.x !== 'boolean'` test would never fire for upgrading users.
     if (typeof data.onboarded !== 'boolean') state.onboarded = true;
     if (typeof data.tutorialSeen !== 'boolean') state.tutorialSeen = true;
+    // Panel tier: anything unrecognised (incl. saves that predate it) → Essentials.
+    if (state.panelTier !== 'advanced') state.panelTier = 'essentials';
     if (typeof data.duration === 'number') {
       // Old format: copy top-level animation params into logosIn.
       const li = state.segments.logosIn;
@@ -5096,10 +5100,9 @@ function setActiveSegment(seg, opts) {
   // Load incoming into top-level mirror so existing readers (playAnimation,
   // drawFrame, exports) pick up the new segment without code changes.
   syncTopFromActiveSegment();
-  // Open the matching settings panel, collapse the others.
-  document.querySelectorAll('.section[data-segment]').forEach(p => {
-    p.classList.toggle('open', p.dataset.segment === seg);
-  });
+  // One contextual Motion panel — retarget it at this segment and make sure it's open.
+  const motionPanel = document.querySelector('.section[data-section="animate-in"]');
+  if (motionPanel) { motionPanel.dataset.segment = seg; motionPanel.classList.add('open'); }
   // Update timeline visual.
   document.querySelectorAll('#timeline .timeline-seg').forEach(b => {
     b.classList.toggle('active', b.dataset.segment === seg);
@@ -7644,134 +7647,121 @@ function bindUIFromState() {
   document.querySelectorAll('#exportRange button[data-range]').forEach(b => {
     b.classList.toggle('active', b.dataset.range === (state.exportRange || 'all'));
   });
-  bindSecondaryAnimationPanelsFromState();
+  applyMotionPanelUI();
+  applyAutoNoteUI();
+  applyFeelUI();
   // Reflect active segment in timeline.
   document.querySelectorAll('#timeline .timeline-seg').forEach(b => {
     b.classList.toggle('active', b.dataset.segment === state.activeSegment);
   });
   // Keep the in-line timeline dropdowns in sync with state (Speed slider edits, restore, etc.).
   if (typeof syncTimelineDropdowns === 'function') syncTimelineDropdowns();
-  // Reflect each outro panel's order-of-movement toggle.
-  document.querySelectorAll('.order-toggle').forEach(group => {
-    const seg = group.dataset.orderSeg;
-    const reversed = !!(state.segments && state.segments[seg] && state.segments[seg].reverseOrder);
-    group.querySelectorAll('button').forEach(b => {
-      b.classList.toggle('active', b.dataset.order === (reversed ? 'reversed' : 'default'));
-    });
-  });
   applyAutoUI();
   requestAnimationFrame(updateBgIndicator);
 }
 
-// Per-panel slider/easing IDs for the 3 secondary segments. The Animate IN panel
-// (logosIn) uses the legacy bare IDs and is handled by the original SLIDER_KEYS path.
-const SECONDARY_PANELS = [
-  { seg: 'logosOut', prefix: 'logosout' },
-  { seg: 'a8cIn',    prefix: 'a8cin' },
-  { seg: 'a8cOut',   prefix: 'a8cout' },
-];
-const SEG_SLIDER_KEYS = [
-  { key: 'duration',      suffix: 'duration',   seconds: true  },
-  { key: 'stagger',       suffix: 'stagger',    seconds: false },
-  { key: 'slideDistance', suffix: 'slide',      seconds: false },
-  { key: 'startScale',    suffix: 'startscale', seconds: false },
-];
-
-function formatSegVal(key, val, isAuto) {
-  if (isAuto) return 'A';
-  if (key === 'duration') return (val / 1000).toFixed(1) + 's';
-  return String(val);
+// Panel tier — 'essentials' hides everything marked data-tier="advanced" (whole
+// sections and individual control rows); 'advanced' shows the lot. Purely a view
+// layer: no state values change, so flipping it is always safe.
+function applyTierUI() {
+  const pc = document.querySelector('.panel-content');
+  if (!pc) return;
+  const adv = state.panelTier === 'advanced';
+  pc.classList.toggle('adv', adv);
+  document.querySelectorAll('#tierSwitch button[data-tier-btn]').forEach(b => {
+    b.classList.toggle('active', (b.dataset.tierBtn === 'advanced') === adv);
+  });
+}
+function setPanelTier(tier) {
+  state.panelTier = tier === 'advanced' ? 'advanced' : 'essentials';
+  applyTierUI();
+  applyAutoNoteUI();
+  persist();
 }
 
-// Push state.segments[<seg>] values into each secondary panel's slider/easing inputs.
-function bindSecondaryAnimationPanelsFromState() {
-  SECONDARY_PANELS.forEach(({ seg, prefix }) => {
-    const segObj = state.segments && state.segments[seg];
-    if (!segObj) return;
-    SEG_SLIDER_KEYS.forEach(({ key, suffix }) => {
-      const r = document.getElementById('r-' + prefix + '-' + suffix);
-      const v = document.getElementById('v-' + prefix + '-' + suffix);
-      if (!r || !v) return;
-      r.value = segObj[key];
-      v.value = formatSegVal(key, segObj[key], !!(segObj.auto && segObj.auto[key]));
-    });
-    const easing = document.getElementById('s-' + prefix + '-easing');
-    if (easing) easing.value = (segObj.auto && segObj.auto.easing) ? '__auto__' : segObj.easing;
+// ── Motion "feel" (Essentials) ───────────────────────────────────────────────
+// One choice that sets the pace of all four segments. Absolute values, not
+// multipliers, so re-applying a feel is idempotent — and "Balanced" restores the
+// designed choreography (each segment keeps its own relative timing).
+const FEEL_PRESETS = {
+  calm:     { logosIn: 1400, logosOut: 1000, a8cIn: 1400, a8cOut: 1250 },
+  balanced: { logosIn: 1000, logosOut: 700,  a8cIn: 1000, a8cOut: 900  },
+  snappy:   { logosIn: 650,  logosOut: 460,  a8cIn: 650,  a8cOut: 590  },
+};
+function applyPanelFeel(feel) {
+  const preset = FEEL_PRESETS[feel];
+  if (!preset) return;
+  SEGMENT_KEYS.forEach(k => {
+    const seg = state.segments[k];
+    if (!seg || preset[k] == null) return;
+    seg.duration = preset[k];
+    seg.auto.duration = false; // an explicit feel wins over the count-derived value
+  });
+  state.motionFeel = feel;
+  syncTopFromActiveSegment();
+  bindUIFromState();
+  renderStage(true);
+  persist();
+}
+// Highlight the active feel — nothing highlighted once the user hand-tunes a slider.
+function applyFeelUI() {
+  document.querySelectorAll('#feelToggle button[data-feel]').forEach(b => {
+    b.classList.toggle('active', b.dataset.feel === state.motionFeel);
+  });
+  const hint = document.getElementById('feelHint');
+  if (hint) {
+    hint.textContent = state.motionFeel === 'custom'
+      ? 'Custom timing — you’ve tuned the segments by hand. Pick a feel to reset them.'
+      : 'Sets the pace across all four segments. Tune each one individually under Advanced.';
+  }
+}
+// Any hand-edit of a motion slider drops us out of a named feel.
+function markMotionCustom() {
+  if (state.motionFeel !== 'custom') { state.motionFeel = 'custom'; applyFeelUI(); }
+}
+
+// The AUTO summary line. Visible only while the layout's shape is actually being
+// auto-derived — otherwise the user is in CUSTOM and the sliders tell the story.
+function applyAutoNoteUI() {
+  const note = document.getElementById('autoNote');
+  const txt = document.getElementById('autoNoteText');
+  if (!note || !txt) return;
+  const ring = state.layout === 'ring';
+  const isAuto = ring
+    ? !!(state.ring && state.ring.auto)
+    : !!(state.auto && state.auto.spacing && state.auto.scale);
+  txt.textContent = ring
+    ? 'Ring sized automatically to your icon count'
+    : 'Spacing & scale sized automatically';
+  note.hidden = !isAuto;
+}
+// "Customise" — hand the user real control: flip to CUSTOM and reveal the sliders.
+function autoNoteCustomise() {
+  if (state.layout === 'ring') setRingAuto(false); else setAllAuto(false);
+  setPanelTier('advanced');
+}
+
+// The Motion panel is contextual: it always edits state.activeSegment. Retarget its
+// data-segment (so the per-control AUTO toggles hit the right segment), highlight the
+// active pill, and only show Order of movement on the two outro segments.
+const MOTION_SEG_LABEL = { logosIn: 'Logos Intro', logosOut: 'Logos Outro', a8cIn: 'A8C Intro', a8cOut: 'A8C Outro' };
+function applyMotionPanelUI() {
+  const seg = state.activeSegment;
+  const panel = document.querySelector('.section[data-section="animate-in"]');
+  if (!panel) return;
+  panel.dataset.segment = seg;
+  document.querySelectorAll('#motionSeg button[data-mseg]').forEach(b => {
+    b.classList.toggle('active', b.dataset.mseg === seg);
+  });
+  const isOut = seg === 'logosOut' || seg === 'a8cOut';
+  const orderRow = document.getElementById('motionOrderRow');
+  if (orderRow) orderRow.hidden = !isOut;
+  const reversed = !!(state.segments && state.segments[seg] && state.segments[seg].reverseOrder);
+  document.querySelectorAll('#motionOrder button[data-order]').forEach(b => {
+    b.classList.toggle('active', b.dataset.order === (reversed ? 'reversed' : 'default'));
   });
 }
 
-// Wire input handlers for the 3 secondary panels. Each slider/easing change writes
-// directly to state.segments[<seg>] (not the legacy top-level mirror, which belongs
-// to the active segment only).
-function bindSecondaryAnimationPanels() {
-  SECONDARY_PANELS.forEach(({ seg, prefix }) => {
-    SEG_SLIDER_KEYS.forEach(({ key, suffix, seconds }) => {
-      const r = document.getElementById('r-' + prefix + '-' + suffix);
-      const v = document.getElementById('v-' + prefix + '-' + suffix);
-      if (!r || !v) return;
-      const min = +r.min, max = +r.max, step = +r.step || 1;
-      const formatVal = (n) => seconds ? (n / 1000).toFixed(1) + 's' : String(n);
-      const parseVal = (str) => {
-        if (seconds) {
-          const n = parseFloat(String(str).replace(/[^0-9.\-]/g, ''));
-          return isNaN(n) ? NaN : Math.round(n * 1000);
-        }
-        return parseFloat(str);
-      };
-      r.oninput = () => {
-        const segObj = state.segments[seg];
-        segObj[key] = +r.value;
-        if (segObj.auto && segObj.auto[key]) segObj.auto[key] = false;
-        v.value = formatVal(+r.value);
-        applyAutoUI();
-        if (seg === state.activeSegment) { syncTopFromActiveSegment(); renderStage(); }
-        persist();
-      };
-      const commit = () => {
-        const segObj = state.segments[seg];
-        let n = parseVal(v.value);
-        if (isNaN(n)) { v.value = formatSegVal(key, segObj[key], !!(segObj.auto && segObj.auto[key])); return; }
-        if (n < min) n = min;
-        if (n > max) n = max;
-        n = Math.round((n - min) / step) * step + min;
-        n = Math.round(n * 1000) / 1000;
-        r.value = n;
-        segObj[key] = n;
-        if (segObj.auto && segObj.auto[key]) segObj.auto[key] = false;
-        v.value = formatVal(n);
-        applyAutoUI();
-        if (seg === state.activeSegment) { syncTopFromActiveSegment(); renderStage(); }
-        persist();
-      };
-      v.addEventListener('blur', commit);
-      v.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); commit(); v.blur(); }
-        else if (e.key === 'Escape') {
-          const segObj = state.segments[seg];
-          v.value = formatSegVal(key, segObj[key], !!(segObj.auto && segObj.auto[key]));
-          v.blur();
-        }
-      });
-      v.addEventListener('focus', () => v.select());
-    });
-    const easing = document.getElementById('s-' + prefix + '-easing');
-    if (easing) {
-      easing.onchange = (e) => {
-        const segObj = state.segments[seg];
-        const val = e.target.value;
-        if (val === '__auto__') {
-          setSegmentAutoMode(seg, 'easing', true);
-        } else {
-          if (segObj.auto) segObj.auto.easing = false;
-          segObj.easing = val;
-          if (seg === state.activeSegment) { syncTopFromActiveSegment(); renderStage(); }
-          applyAutoUI();
-          persist();
-        }
-      };
-    }
-  });
-}
 
 // Apply visual auto/custom state to every controllable row:
 //   - .is-auto class on the row (dims slider/select, shows "A" or appropriate value)
@@ -7960,6 +7950,8 @@ function bindEvents() {
           state.auto[key] = false;
           applyAutoUI();
         }
+        // Hand-tuning any per-segment timing drops us out of a named motion feel.
+        if (ANIM_FIELDS.includes(key)) markMotionCustom();
         v.value = formatVal(+r.value);
       }
       renderStage();
@@ -8046,11 +8038,21 @@ function bindEvents() {
     };
   });
 
-  // Wire the 3 secondary animation panels (Animate OUT, A8C Intro, A8C Outro).
-  // Each panel's sliders/easing update state.segments[<seg>] directly. The Animate IN
-  // panel keeps its legacy IDs and bindings — its mirror to state.segments.logosIn is
-  // handled by syncActiveSegmentFromTop() inside persist().
-  bindSecondaryAnimationPanels();
+  // Motion panel segment selector — retargets the one contextual panel.
+  document.querySelectorAll('#motionSeg button[data-mseg]').forEach(btn => {
+    btn.onclick = () => setActiveSegment(btn.dataset.mseg);
+  });
+
+  // Panel tier switch (Essentials / Advanced).
+  document.querySelectorAll('#tierSwitch button[data-tier-btn]').forEach(btn => {
+    btn.onclick = () => setPanelTier(btn.dataset.tierBtn);
+  });
+  document.getElementById('btn-auto-customise').onclick = () => autoNoteCustomise();
+
+  // Motion feel presets (Essentials).
+  document.querySelectorAll('#feelToggle button[data-feel]').forEach(btn => {
+    btn.onclick = () => applyPanelFeel(btn.dataset.feel);
+  });
 
   // Global "Overall Control" buttons — flip every Overall key at once.
   // When the buttons are in the "mixed" state, clicking either one snaps
@@ -8398,18 +8400,16 @@ function bindEvents() {
   syncTimelineDropdowns();
   bindTimelineDropdowns();
   // "Order of movement" toggles on the two outro panels.
-  document.querySelectorAll('.order-toggle').forEach(group => {
-    const seg = group.dataset.orderSeg;
-    group.querySelectorAll('button[data-order]').forEach(btn => {
-      btn.onclick = () => {
-        const segObj = state.segments && state.segments[seg];
-        if (!segObj) return;
-        segObj.reverseOrder = btn.dataset.order === 'reversed';
-        group.querySelectorAll('button').forEach(b => b.classList.toggle('active', b === btn));
-        if (seg === state.activeSegment) renderStage(true);
-        persist();
-      };
-    });
+  // Order of movement — one toggle, applied to whichever segment is active.
+  document.querySelectorAll('#motionOrder button[data-order]').forEach(btn => {
+    btn.onclick = () => {
+      const segObj = state.segments && state.segments[state.activeSegment];
+      if (!segObj) return;
+      segObj.reverseOrder = btn.dataset.order === 'reversed';
+      applyMotionPanelUI();
+      renderStage(true);
+      persist();
+    };
   });
   // PLAY ALL — walks all 4 segments + pauses on the live stage.
   document.getElementById('btn-play-all').onclick = () => {
@@ -8473,6 +8473,40 @@ function bindEvents() {
 // points are stubs for now.
 function markOnboarded() {
   if (!state.onboarded) { state.onboarded = true; persist(); }
+}
+// The first-run grid drifts slowly along its own 45° axis. Torn down the moment
+// the fork is dismissed, so it costs a returning user nothing.
+let welcomeDriftRAF = null;
+function startWelcomeDrift() {
+  const pat = document.getElementById('wpGrid');
+  if (!pat) return;
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const TILE = 56, SPEED = 6; // px per second
+  const t0 = performance.now();
+  const step = (now) => {
+    const x = (((now - t0) / 1000) * SPEED) % TILE;
+    pat.setAttribute('patternTransform', `rotate(45) translate(${x.toFixed(2)} 0)`);
+    welcomeDriftRAF = requestAnimationFrame(step);
+  };
+  welcomeDriftRAF = requestAnimationFrame(step);
+}
+function stopWelcomeDrift() {
+  if (welcomeDriftRAF) { cancelAnimationFrame(welcomeDriftRAF); welcomeDriftRAF = null; }
+}
+// The intro backdrop spans the WHOLE first-run flow — Welcome, Setup Assistant,
+// tutorial — so the user never drops back onto a live-but-untouchable UI between
+// steps. It goes up once and comes down only when they actually land in the tool.
+let introFlow = false;
+function startIntro() {
+  introFlow = true;
+  document.body.classList.add('intro-backdrop');
+  startWelcomeDrift();
+}
+function endIntro() {
+  if (!introFlow) return;
+  introFlow = false;
+  document.body.classList.remove('intro-backdrop');
+  stopWelcomeDrift();
 }
 function openWelcome() { document.getElementById('welcomeModal').classList.add('open'); }
 function closeWelcome() { document.getElementById('welcomeModal').classList.remove('open'); }
@@ -8558,7 +8592,11 @@ function openWizard() {
   document.getElementById('wizardModal').classList.add('open');
   renderWizard();
 }
-function closeWizard() { destroyWizThumbs(); document.getElementById('wizardModal').classList.remove('open'); }
+function closeWizard() {
+  destroyWizThumbs();
+  document.getElementById('wizardModal').classList.remove('open');
+  endIntro(); // no-op unless this was the first-run flow
+}
 
 // ── Animated step-3 layout thumbnails ────────────────────────────────────────
 // Both are standalone code (no Lottie dependency). Line = 5 dots in a row, each
@@ -8954,6 +8992,7 @@ function openTutorial() {
 function closeTutorial() {
   document.getElementById('tutorialModal').classList.remove('open');
   if (!state.tutorialSeen) { state.tutorialSeen = true; persist(); }
+  endIntro(); // no-op unless this was the first-run flow
 }
 
 // Renders the step's clip, or a placeholder until one is supplied.
@@ -9000,13 +9039,15 @@ function tutBack() { if (tutStep > 0) { tutStep--; renderTutorial(); } }
 
 function bindOnboarding() {
   const wm = document.getElementById('welcomeModal');
+  // Handing off to the assistant or the tutorial keeps the intro backdrop up —
+  // only "Just start" (or dismissing) drops the user into the tool.
   document.getElementById('btn-welcome-wizard').onclick   = () => { markOnboarded(); closeWelcome(); openWizard(); };
   document.getElementById('btn-welcome-tutorial').onclick = () => { markOnboarded(); closeWelcome(); openTutorial(); };
-  document.getElementById('btn-welcome-skip').onclick     = () => { markOnboarded(); closeWelcome(); };
+  document.getElementById('btn-welcome-skip').onclick     = () => { markOnboarded(); closeWelcome(); endIntro(); };
   // Dismiss (backdrop click or Esc) counts as "Just start".
-  wm.addEventListener('click', (e) => { if (e.target === wm) { markOnboarded(); closeWelcome(); } });
+  wm.addEventListener('click', (e) => { if (e.target === wm) { markOnboarded(); closeWelcome(); endIntro(); } });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && wm.classList.contains('open')) { markOnboarded(); closeWelcome(); }
+    if (e.key === 'Escape' && wm.classList.contains('open')) { markOnboarded(); closeWelcome(); endIntro(); }
   });
   document.getElementById('btnHowItWorks').onclick = () => openTutorial();
   document.getElementById('btn-open-wizard').onclick = () => openWizard();
@@ -9047,10 +9088,8 @@ function boot() {
   applyAspectRatio(state.aspectRatio || '16:9');
   // Compute initial auto-derived values for any sliders flagged auto
   recomputeAuto();
-  bindUIFromState();
-  document.querySelectorAll('.section[data-segment]').forEach(p => {
-    p.classList.toggle('open', p.dataset.segment === state.activeSegment);
-  });
+  bindUIFromState();  // applyMotionPanelUI() inside retargets the contextual Motion panel
+  applyTierUI();
   bindEvents();
   bindOnboarding();
   bindHistory();
@@ -9060,7 +9099,7 @@ function boot() {
     updateBgIndicator();
   });
   // First-time visitors (no saved state → onboarded still false) get the Welcome fork.
-  if (!state.onboarded) openWelcome();
+  if (!state.onboarded) { startIntro(); openWelcome(); }
 }
 
 boot();

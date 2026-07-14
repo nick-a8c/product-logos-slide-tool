@@ -3,3 +3,6 @@ node_modules/
 *.log
 .vscode/
 .idea/
+
+# local fallback snapshots
+*-fallback.html
