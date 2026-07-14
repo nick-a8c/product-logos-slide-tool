@@ -141,7 +141,19 @@ A single background control feeds the live stage and every exporter. Choose **So
 
 Backgrounds can also be turned off entirely — useful for WebM and SVG exports, which preserve transparency.
 
+## The panel — Essentials and Advanced
+
+The panel opens in **Essentials**: roughly seven controls — the decisions you actually make. **Advanced** reveals every control the tool has. Nothing is removed in Essentials and nothing is renamed in Advanced; it's the same panel, filtered.
+
+- **Motion → Feel** — *Calm / Balanced / Snappy* sets the pace across all four Line segments in one click. Tune any individual timing and it switches to *Custom*, so the label never claims a preset you've since edited.
+- **Motion is contextual** — under Advanced, one Motion section with an *In / Out / A8C in / A8C out* toggle, instead of four near-identical panels. *Order of movement* appears only for the outros, where it applies.
+- **While AUTO is on**, Essentials says so in one line — *"Spacing & scale sized automatically"* — with a **Customise** button, rather than showing you six greyed-out sliders.
+
+Your tier is remembered between visits.
+
 ## Controls
+
+Everything below is in **Advanced**; the Essentials view shows the subset you need to get a good result.
 
 | Control | Range | Scope | What it does |
 |---|---|---|---|

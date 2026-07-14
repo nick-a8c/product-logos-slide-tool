@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.3.0] — 2026-07-14
+
+The **Panel** release. v2.2 made the tool approachable on the way *in*; this one makes it approachable once you're *there*. The settings panel went from **39 controls on screen to about 7** — with nothing removed and nothing renamed.
+
+### Added
+
+- **Essentials / Advanced tiers.** A two-button toggle at the top of the panel. **Essentials** (the default) shows only the decisions a user actually makes; **Advanced** reveals every control the tool has ever had. Twenty-nine sections and controls are tagged `data-tier="advanced"` and hidden by one CSS rule (`.panel-content:not(.adv) [data-tier="advanced"] { display: none }`), so nothing is deleted, unbound, or moved — it's the same DOM, just filtered. Remembered per user (`state.panelTier`).
+- **Motion "Feel"** — Calm / Balanced / Snappy, an Essentials-level replacement for twenty timing sliders. Presets are **absolute durations, not multipliers**, so re-picking the same feel is idempotent (`FEEL_PRESETS`). Hand-tuning any timing slider flips the state to *Custom* (`markMotionCustom()`) rather than silently lying about which preset you're on. Line only — Ring's motion is its Speed/Direction, which live in the Ring section.
+- **AUTO note.** While AUTO is on, Essentials shows one line — *"Spacing & scale sized automatically"* — with a **Customise** button, instead of six greyed-out sliders. Customise switches to Advanced and hands over control.
+- **First-run intro backdrop.** A drifting accent grid (SVG `<pattern>`, 56px tile, 45°, ~6px/s) behind the whole first-run flow, replacing the blurred-out live UI. It's a standalone `#introBackdrop` layer, so it **persists across Welcome → Setup Assistant → tutorial** and only comes down when the user actually lands in the tool. Parked under `prefers-reduced-motion`.
+
+### Changed
+
+- **The Motion panel is now contextual.** Four near-identical Motion sections (one per segment — 22 of the panel's 39 controls were the same 5 knobs repeated) collapsed into **one** section with a segment toggle: *In / Out / A8C in / A8C out*. It retargets via `panel.dataset.segment`, so the per-control AUTO toggles follow the active segment. *Order of movement* only appears for the two outro segments, where it means something.
+- A **returning** user reopening the Setup Assistant still gets the normal translucent overlay over their own composition — the opaque pattern backdrop is first-run only (`endIntro()` is a no-op outside the intro flow).
+- `APP_VERSION` bumped to `v2.3` (export filename suffix).
+
+### Notes
+
+- No control was removed and no state field changed meaning — an Advanced user sees exactly the v2.2 panel.
+- `panelTier` and `motionFeel` were added to `serializeState()`. They must be: `persist()` uses a curated allow-list, so a new state field that isn't listed there is silently never saved.
+
 ## [2.2.0] — 2026-07-14
 
 The **Onboarding** release. A guided **Setup Assistant**, in-app templates, a step-through tutorial, undo/redo, and count-driven Ring composition — so a marketer, designer, sales person or developer can all get a good result without learning every slider.

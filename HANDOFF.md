@@ -1,13 +1,14 @@
 # Product Logos Slide Tool — Project Handoff
 
-This document captures the state of the **Product Logos Slide Tool** (internal nickname: *Icon Stage*) as of **v2.2.0** so a fresh Claude session can pick up from here without re-deriving context. Read it top to bottom before making changes.
+This document captures the state of the **Product Logos Slide Tool** (internal nickname: *Icon Stage*) as of **v2.3.0** so a fresh Claude session can pick up from here without re-deriving context. Read it top to bottom before making changes.
 
 ## Quick links
 
 - **Live site:** https://nick-a8c.github.io/product-logos-slide-tool/
 - **Source:** https://github.com/nick-a8c/product-logos-slide-tool
 - **Owner:** Nebojsa Jurcic (`nick-a8c`)
-- **Current version:** v2.2.0 (Onboarding release — Setup Assistant, templates, tutorial, undo/redo)
+- **Current version:** v2.3.0 (Panel release — Essentials/Advanced tiers, contextual Motion panel, Motion Feel, first-run intro backdrop)
+- **Previous:** v2.2.0 (Onboarding — Setup Assistant, templates, tutorial, undo/redo)
 
 ## What this project is
 
@@ -54,6 +55,7 @@ Key fields:
 - **Library:** `library` (SVGs), `assignments` (slot → icon id)
 - **Chrome:** `theme`, `panelState`, `panelX/Y`
 - **v2.2 onboarding:** `onboarded`, `tutorialSeen`
+- **v2.3 panel:** `panelTier` (`'essentials'|'advanced'`), `motionFeel` (`'calm'|'balanced'|'snappy'|'custom'`)
 
 ### The four-segment model (Line)
 
@@ -105,7 +107,48 @@ One source of truth: `getBgCSS()` (live stage + HTML embeds) and `fillBgCanvas()
 
 ---
 
-## v2.2 — Onboarding (the big new surface)
+## v2.3 — The panel (current release)
+
+The panel had **39 controls** on screen in Line (35 in Ring), and **22 of those 39 were the same 5 knobs repeated** across four near-identical Motion sections. v2.3 gets the default view down to about **7 controls without removing anything**.
+
+### Essentials / Advanced tiers
+
+`state.panelTier` = `'essentials'` (default) | `'advanced'`. Toggle buttons at the top of the panel; `applyTierUI()` puts `.adv` on `.panel-content`. The whole mechanism is **one CSS rule**:
+
+```css
+.panel-content:not(.adv) [data-tier="advanced"] { display: none !important; }
+```
+
+29 sections/controls carry `data-tier="advanced"`. **Nothing is removed, unbound, or moved** — same DOM, same listeners, just filtered. An Advanced user sees exactly the v2.2 panel.
+
+> When adding a control, decide its tier. Untagged = visible in Essentials. Tag it `data-tier="advanced"` on the `.ctrl` / `.ctrl-row` / `.row` / `.section` wrapper — **not** on an inner `.ctrl-label`, or you'll hide the label and orphan a visible slider.
+
+### Contextual Motion panel
+
+The four per-segment Motion sections collapsed into **one** `[data-section="animate-in"]` with a segment toggle (`#motionSeg`: In / Out / A8C in / A8C out). `applyMotionPanelUI()` writes `panel.dataset.segment = state.activeSegment`, which is what **retargets the per-control AUTO toggles**. `#motionOrderRow` ("Order of movement") shows only for `logosOut` / `a8cOut`, where it means something. `MOTION_SEG_LABEL` maps the keys to human names.
+
+### Motion Feel (Essentials)
+
+`FEEL_PRESETS` — Calm / Balanced / Snappy — sets all four segment durations at once. **Absolute values, not multipliers**, so re-picking a feel is idempotent (a multiplier would compound). Hand-tuning any `ANIM_FIELDS` slider calls `markMotionCustom()` → `state.motionFeel = 'custom'`, so the pill never lies about what you're on. **Line only** — Ring's motion is its Speed/Direction in the Ring section.
+
+### AUTO note
+
+While AUTO is on, Essentials shows `#autoNote` ("Spacing & scale sized automatically") + a **Customise** button instead of six greyed-out sliders. Customise flips to Advanced and turns AUTO off.
+
+### First-run intro backdrop
+
+`#introBackdrop` — a fixed `z-index: 99` layer (modals are 100) with `background: var(--app-bg)`, a drifting SVG `<pattern>` grid (56px tile, `rotate(45)`, ~6px/s via `patternTransform`) in `--accent`, and a `--welcome-scrim` wash. It genuinely **hides the UI** rather than blurring it.
+
+- `introFlow` flag: raised at boot when `!state.onboarded`, and it **survives Welcome → Setup Assistant → tutorial**. `startIntro()` / `endIntro()`.
+- While `body.intro-backdrop` is set, the three onboarding modals **drop their own overlay + blur** (else they'd frost the pattern).
+- `endIntro()` is a **no-op outside the intro flow** — so a *returning* user reopening the assistant gets the normal translucent overlay over their real composition, not an opaque pattern hiding their work. Don't regress this.
+- Drift is parked under `prefers-reduced-motion`.
+
+> **Verification gotcha:** the headless preview **pauses rAF entirely unless the page paints** — measured 0 ticks in 600 ms. The drift and the thumbnails look dead if you read state via JS alone. Read state *between screenshots* to confirm they're actually running.
+
+---
+
+## v2.2 — Onboarding
 
 ### Welcome fork (first run)
 
@@ -184,10 +227,11 @@ In-memory, **in-session** history (resets on reload — snapshots carry the icon
 - Missing `segmentPauses`, `reverseOrder` → defaulted; `a8cScale > 80` → clamped
 - Invalid `videoQuality` → `'high'`
 - **v2.2:** missing `data.onboarded` / `data.tutorialSeen` → set **true** (existing users are not re-onboarded). Check `data`, not `state` — see the gotcha above.
+- **v2.3:** no migration needed — a v2.2 save with no `panelTier` / `motionFeel` falls back to the defaults (`'essentials'`, `'balanced'`). Existing users land in Essentials, which is intended; every control is one click away under Advanced.
 
 ## What's done
 
-Everything in the Line + Ring feature set (see above), all export formats offline, and the full v2.2 onboarding surface: Welcome fork, Setup Assistant wizard (role → use-case → layout → brands → review), animated layout thumbnails, live layout preview, in-app templates, 5-step tutorial shell, undo/redo, per-aspect count-driven Ring AUTO, plus the panel polish (holographic Setup Assistant button, Overall Control refresh with a "Reset to ideal default" tooltip).
+Everything in the Line + Ring feature set (see above), all export formats offline, the full v2.2 onboarding surface (Welcome fork, Setup Assistant wizard, animated layout thumbnails, live layout preview, in-app templates, 5-step tutorial shell, undo/redo, per-aspect count-driven Ring AUTO, holographic Setup Assistant button, Overall Control refresh + tooltip), and the v2.3 panel restructure (Essentials/Advanced tiers, contextual Motion panel, Motion Feel, AUTO note, first-run intro backdrop).
 
 ## What's pending or open
 
