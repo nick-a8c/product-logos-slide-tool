@@ -2,9 +2,52 @@
 
 All notable changes to this project will be documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [2.2.0] — 2026-07-14
 
-Landed on `main` after the v2.1.0 tag; `APP_VERSION` is still `v2.1` (no release cut yet). An export-panel overhaul, animated aspect morphing, UI polish, and a mobile prototype.
+The **Onboarding** release. A guided **Setup Assistant**, in-app templates, a step-through tutorial, undo/redo, and count-driven Ring composition — so a marketer, designer, sales person or developer can all get a good result without learning every slider.
+
+### Added
+
+- **Welcome fork** on first run — one modal (never two stacked) offering *Setup Assistant* / *Show me how it works* / *Just start*. Gated by the new `state.onboarded`; existing users are never re-onboarded.
+- **Setup Assistant** (`#btn-open-wizard`, top of the panel — a holographic pill). A dismissible 5-step wizard over the tool:
+  1. **Role** (Marketing / Design / Sales / Engineering / Just exploring) — only pre-sorts the use-case cards.
+  2. **Use-case** — drives layout, aspect, size, format and motion "feel" (Social Reel, Social square, Slide, Website hero, Logo loop, Email banner, Wallpaper).
+  3. **Line or Ring** — two **animated thumbnails**; pre-selected from the use-case, but the user's pick wins.
+  4. **Brands** — 9×3 grid with a **live preview** of the chosen layout that updates as icons are toggled.
+  5. **Review** → *Open in tool*, plus optional *Save as template*.
+  Guided setup always lands on a **solid white background**. Everything stays fully editable afterwards.
+- **Animated layout thumbnails** — pure CSS/SVG (no Lottie dependency): Line = 5 dots growing/fading with a centre-out stagger; Ring = an 8-dot tilted orbit with depth. Both share one blue so they read as a set.
+- **In-app templates** — save a named setup and reuse it. Stored in `localStorage` under `icon-stage-templates-v1`, separate from the main state. Appears as a "Start from a template" step 0 in the assistant (load / delete), and "Save as template" on the review step. Design fields only — a template never carries your theme or panel position.
+- **Tutorial** — a 5-step walkthrough (brands → Line vs Ring → motion → background & aspect → export), reachable from the Welcome fork or a persistent bright **"How it works"** button. Progress dots, Back/Next/Skip, Esc, and arrow-key navigation. *(Media slots are placeholders pending the real clips.)*
+- **Undo / Redo** — two circular buttons in the bottom bar plus **`Ctrl/Cmd+Z`**, **`Ctrl/Cmd+Shift+Z`** and **`Ctrl+Y`**. In-session history, 50 steps deep, debounced so a slider drag is a single undo step. Ignores UI chrome, so undo never flips your theme or moves the panel.
+- **Ring composition AUTO now scales with icon count** — radius and icon size follow a **per-aspect** anchor table (`RING_COUNT_ANCHORS_BY_ASPECT`), the Ring analogue of Line's Spacing/Scale. Tilt and angle still follow the aspect. Interpolates between anchors and holds flat below the smallest one:
+
+  | Aspect | anchors (icons → radius / size) |
+  |---|---|
+  | 16:9 & 21:9 | 3→20/18 · 10→29/15 · 16→40/14 · 25→48/12 |
+  | 4:3 | 7→29/14 · 25→57/9 |
+  | 9:16 | 7→60/11 · 25→87/7 |
+  | 4:5 | 7→47/14 · 25→81/10 |
+  | 1:1 | 7→61/17 · 25→75/10 |
+
+- **Overall Control refresh button** — a one-click "Reset to ideal default" (same as Load defaults, layout-aware) with a custom hover tooltip.
+
+### Changed
+
+- `setLayout()` hoisted from a `bindEvents` closure to a global function so the Setup Assistant can switch layout programmatically.
+- `serializeState()` factored out of `persist()` so the template store and undo history snapshot exactly what the app persists.
+- `APP_VERSION` bumped to `v2.2` (export filename suffix).
+
+### Fixed
+
+- **Existing users were being re-onboarded on upgrade.** The "has this user seen onboarding" migration tested `state.onboarded`, which already defaults to `false` (a boolean), so the check never fired. Now tests the *saved* data.
+- New state fields silently failed to save because `persist()` uses a curated allow-list rather than a full state dump — the onboarding flags are now included.
+- The Setup Assistant's live preview could size its ring against a stale container width and cluster every icon into one corner; it now retries once layout settles.
+- The Setup Assistant button's top corners were clipped unevenly by the panel's rounded top + `overflow:hidden`.
+
+## [2.1.1] — 2026-06-30
+
+An export-panel overhaul, animated aspect morphing, UI polish, and a mobile prototype.
 
 ### Added
 

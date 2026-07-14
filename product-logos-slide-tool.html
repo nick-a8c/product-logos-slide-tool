@@ -543,6 +543,34 @@
   .overall-btn:hover {
     background: var(--button-secondary-hover);
   }
+  /* Icon-only variant (e.g. the Overall Control "Load defaults" refresh). */
+  .overall-btn.icon-only {
+    padding: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+  }
+  .overall-btn.icon-only:hover { color: var(--text); }
+  .overall-btn.icon-only svg { display: block; }
+  /* Hover tooltip (e.g. "Reset to ideal default"). Inverts for both themes. */
+  .overall-btn.icon-only[data-tip] { position: relative; }
+  .overall-btn.icon-only[data-tip]::after {
+    content: attr(data-tip);
+    position: absolute; bottom: calc(100% + 9px); left: 50%; transform: translateX(-50%) translateY(3px);
+    background: var(--text); color: var(--panel-bg);
+    font-size: 11px; font-weight: 500; letter-spacing: 0.01em; text-transform: none;
+    padding: 6px 9px; border-radius: 6px; white-space: nowrap;
+    opacity: 0; pointer-events: none; transition: opacity 0.14s ease, transform 0.14s ease;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2); z-index: 200;
+  }
+  .overall-btn.icon-only[data-tip]::before {
+    content: ''; position: absolute; bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%);
+    border: 5px solid transparent; border-top-color: var(--text);
+    opacity: 0; pointer-events: none; transition: opacity 0.14s ease; z-index: 200;
+  }
+  .overall-btn.icon-only[data-tip]:hover::after { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .overall-btn.icon-only[data-tip]:hover::before { opacity: 1; }
   .overall-btn.active {
     background: var(--accent);
     color: var(--accent-text);
@@ -988,6 +1016,212 @@
     padding-top: 18px;
   }
 
+  /* ── v2.2 onboarding: first-run Welcome fork + persistent help button ────── */
+  .welcome-modal .modal { width: 460px; }
+  .welcome-fork {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 2px;
+  }
+  .welcome-choice {
+    text-align: left;
+    background: var(--button-secondary-bg);
+    border: 1px solid var(--button-secondary-border);
+    border-radius: 12px;
+    padding: 16px 18px;
+    cursor: pointer;
+    transition: border-color 0.15s ease, transform 0.05s ease;
+  }
+  .welcome-choice:hover { border-color: var(--accent); }
+  .welcome-choice:active { transform: translateY(1px); }
+  .welcome-choice.primary { border-color: var(--accent); }
+  .welcome-choice .wc-title {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 3px;
+  }
+  .welcome-choice .wc-desc {
+    display: block;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    line-height: 1.35;
+  }
+
+  /* Persistent "How it works" launcher — bright, bottom-left, always available.
+     Uses a fixed bright color (like the PLAY ALL pill) so it stands out in both themes. */
+  .help-fab {
+    position: fixed;
+    left: 20px;
+    bottom: 20px;
+    z-index: 90;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 15px 9px 11px;
+    border: none;
+    border-radius: 999px;
+    background: #ff5a3c;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    box-shadow: 0 6px 18px rgba(255, 90, 60, 0.42);
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+  }
+  .help-fab:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(255, 90, 60, 0.52); }
+  .help-fab:active { transform: translateY(0); }
+  .help-fab .help-fab-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.25);
+    font-weight: 700;
+  }
+
+  /* Recall entry point — reopens the setup wizard from the panel. */
+  .panel-setup-btn {
+    display: flex; align-items: center; justify-content: center;
+    /* Equal ~9px inset on top + both sides (margin-top also clears the panel's
+       18px rounded-top corner so the button isn't clipped by overflow:hidden).
+       width = 100% − the 18px of horizontal margin so it fills minus the gaps. */
+    box-sizing: border-box; width: calc(100% - 18px); margin: 9px 9px 8px; padding: 11px 12px;
+    border: none;
+    border-radius: 10px;
+    /* Holographic iridescent fill — light pastel so the dark label stays legible
+       in both themes; slow shimmer via animated background-position. */
+    background: linear-gradient(110deg, #ffd9f2, #d9e6ff, #d4fff4, #ecffd6, #fff4d6, #ffd9f2);
+    background-size: 300% 100%;
+    animation: holoShift 9s linear infinite;
+    color: #23233a; font-size: 12.5px; font-weight: 600;
+    cursor: pointer; transition: filter 0.15s ease, box-shadow 0.15s ease;
+  }
+  .panel-setup-btn:hover { filter: saturate(1.3) brightness(1.03); box-shadow: 0 2px 12px rgba(120, 120, 255, 0.28); }
+  @keyframes holoShift { to { background-position: 300% 50%; } }
+  @media (prefers-reduced-motion: reduce) { .panel-setup-btn { animation: none; } }
+
+  /* ── v2.2 tutorial ───────────────────────────────────────────────────────── */
+  .tutorial-modal .modal { width: 560px; }
+  /* Media slot — one per step. Holds the real clip once supplied; until then it
+     renders a placeholder. Fixed 16:9 so swapping media won't reflow the modal. */
+  .tut-media {
+    position: relative; width: 100%; aspect-ratio: 16 / 9;
+    border-radius: 12px; overflow: hidden; margin-bottom: 18px;
+    background: var(--button-secondary-bg);
+  }
+  .tut-media video, .tut-media img, .tut-media svg { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .tut-media-ph {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+    border: 1.5px dashed var(--button-secondary-border); border-radius: 12px;
+    color: var(--text-tertiary);
+  }
+  .tut-media-ph .tut-ph-icon {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 44px; height: 44px; border-radius: 50%;
+    background: var(--button-secondary-border); color: var(--text-secondary);
+  }
+  .tut-media-ph .tut-ph-label { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; }
+  .tut-media-ph .tut-ph-hint { font-size: 11px; color: var(--text-tertiary); opacity: 0.8; }
+
+  /* ── v2.2 setup wizard ───────────────────────────────────────────────────── */
+  .wizard-modal .modal { width: 600px; }
+  .wiz-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .wiz-dots { display: flex; gap: 6px; }
+  .wiz-dots .wiz-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--button-secondary-border); transition: background 0.15s ease, width 0.15s ease; }
+  .wiz-dots .wiz-dot.done { background: var(--accent); }
+  .wiz-dots .wiz-dot.current { background: var(--accent); width: 20px; border-radius: 4px; }
+  .wiz-close { background: none; border: none; font-size: 22px; line-height: 1; color: var(--text-secondary); cursor: pointer; padding: 0 4px; }
+  .wiz-close:hover { color: var(--text); }
+  .wiz-body { overflow-y: auto; flex: 1; padding: 2px 2px 8px; min-height: 190px; }
+
+  .wiz-chips { display: flex; flex-wrap: wrap; gap: 10px; }
+  .wiz-chip { padding: 12px 18px; border-radius: 10px; border: 1px solid var(--button-secondary-border); background: var(--button-secondary-bg); color: var(--text); font-size: 13px; font-weight: 500; cursor: pointer; transition: border-color 0.15s ease; }
+  .wiz-chip:hover { border-color: var(--accent); }
+  .wiz-chip.selected { border-color: var(--accent); background: var(--accent); color: #fff; }
+
+  .wiz-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .wiz-card { text-align: left; padding: 13px 15px; border-radius: 11px; border: 1px solid var(--button-secondary-border); background: var(--button-secondary-bg); cursor: pointer; transition: border-color 0.15s ease; }
+  .wiz-card:hover { border-color: var(--accent); }
+  .wiz-card.selected { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .wiz-card .wcard-title { display: block; font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+  .wiz-card .wcard-meta { display: block; font-size: 11px; color: var(--text-secondary); }
+
+  .wiz-layout-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .wiz-layout-card { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 7px; padding: 20px 16px; border-radius: 12px; border: 1px solid var(--button-secondary-border); background: var(--button-secondary-bg); cursor: pointer; transition: border-color 0.15s ease; }
+  .wiz-layout-card:hover { border-color: var(--accent); }
+  .wiz-layout-card.selected { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .wiz-layout-card .wiz-thumb { width: 100%; max-width: 152px; aspect-ratio: 3 / 2; margin-bottom: 4px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .wiz-layout-card .wiz-thumb svg { width: 100%; height: 100%; display: block; }
+  /* Line thumbnail — CSS re-creation of the Lottie: dots grow + fade, staggered. */
+  .wiz-line-svg .wld { fill: #1869fd; transform-box: fill-box; transform-origin: center; animation: wizLineDot 3.767s ease-in-out infinite; }
+  @keyframes wizLineDot {
+    0%   { transform: scale(0.44); opacity: 0; }
+    20%  { transform: scale(1);    opacity: 1; }
+    66%  { transform: scale(1);    opacity: 1; }
+    88%  { transform: scale(0.44); opacity: 0; }
+    100% { transform: scale(0.44); opacity: 0; }
+  }
+  .wiz-layout-card .wcard-title { font-size: 14px; font-weight: 600; color: var(--text); }
+  .wiz-layout-card .wcard-meta { font-size: 11px; color: var(--text-secondary); }
+
+  .wiz-field { margin-bottom: 20px; }
+  .wiz-field > label { display: block; font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 9px; }
+  .wiz-seg { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+  .wiz-seg button { padding: 8px 14px; border-radius: 8px; border: 1px solid var(--button-secondary-border); background: var(--button-secondary-bg); color: var(--text); font-size: 12px; cursor: pointer; }
+  .wiz-seg button.active { border-color: var(--accent); background: var(--accent); color: #fff; }
+
+  .wiz-brands { display: grid; grid-template-columns: repeat(9, 1fr); gap: 6px; }
+  .wiz-brand { position: relative; aspect-ratio: 1; border-radius: 9px; border: 2px solid transparent; background: var(--button-secondary-bg); padding: 4px; cursor: pointer; transition: border-color 0.12s ease, opacity 0.12s ease; opacity: 0.4; }
+  .wiz-brand svg, .wiz-brand img { width: 100%; height: 100%; border-radius: 7px; display: block; }
+  .wiz-brand.selected { opacity: 1; border-color: var(--accent); }
+  .wiz-brand:hover { opacity: 1; }
+  .wiz-brands-meta { font-size: 12px; color: var(--text-secondary); margin: 2px 0 8px; }
+  .wiz-brands-actions { display: flex; gap: 14px; margin-bottom: 10px; }
+  .wiz-mini { background: none; border: none; color: var(--accent); font-size: 12px; cursor: pointer; padding: 0; }
+
+  .wiz-color { display: inline-flex; align-items: center; gap: 8px; margin-top: 10px; }
+  .wiz-color input[type=color] { width: 34px; height: 34px; border: 1px solid var(--button-secondary-border); border-radius: 8px; background: none; cursor: pointer; }
+
+  /* Live layout preview (step 4) — updates as brands are toggled. */
+  .wiz-preview { position: relative; margin-top: 10px; height: 230px; border: 1px solid var(--button-secondary-border); border-radius: 14px; background: var(--button-secondary-bg); overflow: hidden; }
+  .wiz-preview-stage { position: absolute; inset: 0; }
+  .wiz-preview-stage .wiz-orb { position: absolute; }
+  .wiz-preview-stage .wiz-orb svg, .wiz-preview-stage .wiz-orb img { width: 100%; height: 100%; display: block; }
+  .wiz-preview-note { position: absolute; left: 14px; bottom: 12px; display: flex; align-items: center; gap: 7px; width: 128px; font-size: 8px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-tertiary); pointer-events: none; line-height: 1.5; }
+  .wiz-note-i { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 50%; background: #e5a300; color: #fff; font-size: 9px; font-weight: 700; font-style: italic; }
+
+  .wiz-review { list-style: none; }
+  .wiz-review li { display: flex; justify-content: space-between; padding: 9px 2px; border-bottom: 1px solid var(--section-border); font-size: 13px; }
+  .wiz-review li .wr-key { color: var(--text-secondary); }
+  .wiz-review li .wr-val { color: var(--text); font-weight: 500; }
+
+  .wiz-tpl-list { display: flex; flex-direction: column; gap: 8px; }
+  .wiz-tpl { display: flex; align-items: stretch; gap: 8px; }
+  .wiz-tpl-use { flex: 1; text-align: left; padding: 12px 15px; border-radius: 10px; border: 1px solid var(--button-secondary-border); background: var(--button-secondary-bg); cursor: pointer; transition: border-color 0.15s ease; }
+  .wiz-tpl-use:hover { border-color: var(--accent); }
+  .wiz-tpl-name { display: block; font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+  .wiz-tpl-del { width: 42px; border-radius: 10px; border: 1px solid var(--button-secondary-border); background: var(--button-secondary-bg); color: var(--text-secondary); font-size: 18px; line-height: 1; cursor: pointer; }
+  .wiz-tpl-del:hover { border-color: var(--accent); color: var(--text); }
+  .wiz-tpl-save { display: flex; gap: 8px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--section-border); }
+  .wiz-tpl-save input { flex: 1; padding: 9px 12px; border-radius: 9px; border: 1px solid var(--button-secondary-border); background: var(--button-secondary-bg); color: var(--text); font-size: 13px; }
+
+  .wiz-footer { display: flex; align-items: center; justify-content: space-between; padding-top: 16px; gap: 10px; }
+  .wiz-foot-right { display: flex; align-items: center; gap: 10px; }
+  .wiz-btn { padding: 9px 16px; border-radius: 9px; border: 1px solid var(--button-secondary-border); background: var(--button-secondary-bg); color: var(--text); font-size: 12.5px; font-weight: 500; cursor: pointer; }
+  .wiz-btn:hover { border-color: var(--accent); }
+  .wiz-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .wiz-btn.ghost { background: none; border-color: transparent; color: var(--text-secondary); }
+  .wiz-btn.ghost:hover { color: var(--text); }
+  .wiz-btn:disabled { opacity: 0.4; cursor: default; }
+  .wiz-btn[hidden] { display: none; }
+
   /* Theme switch — top-center, recentered between viewport edges minus panel reservation */
   .theme-switch {
     position: fixed;
@@ -1162,6 +1396,23 @@
     background: var(--accent);
     color: #fff;
   }
+
+  /* Undo / Redo — circular floating buttons in the bottom bar (right of PLAY ALL). */
+  .history-switch { display: flex; align-items: center; gap: 8px; }
+  .hist-btn {
+    width: 42px; height: 42px; border-radius: 50%;
+    background: var(--panel-bg);
+    border: 1px solid var(--section-border);
+    box-shadow: var(--panel-shadow);
+    color: var(--text);
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: background 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
+  }
+  .hist-btn:hover { background: var(--button-secondary-hover); border-color: var(--accent); }
+  .hist-btn:disabled { opacity: 0.35; cursor: default; }
+  .hist-btn:disabled:hover { background: var(--panel-bg); border-color: var(--section-border); }
+  .hist-btn svg { display: block; }
   /* Disabled state — when the other button is active */
   .play-switch button:disabled {
     opacity: 0.4;
@@ -1456,6 +1707,10 @@
 
     <div class="panel-content">
 
+      <button class="panel-setup-btn" id="btn-open-wizard" type="button" title="Reopen the setup assistant">
+        Setup Assistant
+      </button>
+
       <div class="section open" data-section="layout">
         <div class="section-header" data-toggle>
           <h2>Layout</h2>
@@ -1487,6 +1742,9 @@
           <div class="ctrl-row">
             <span class="name">Overall Control</span>
             <div class="overall-buttons" id="overallButtons">
+              <button class="overall-btn icon-only" id="btn-overall-reset" type="button" data-tip="Reset to ideal default" aria-label="Reset to ideal default">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>
+              </button>
               <button class="overall-btn" id="btn-overall-auto" type="button">AUTO</button>
               <button class="overall-btn" id="btn-overall-custom" type="button">CUSTOM</button>
             </div>
@@ -2080,6 +2338,15 @@
     <button id="btn-loop" class="loop">LOOP SEGMENT</button>
     <button id="btn-play-all" class="play-all">PLAY ALL</button>
   </div>
+
+  <div class="history-switch" id="historySwitch">
+    <button id="btn-undo" class="hist-btn" type="button" title="Undo (Ctrl+Z)" aria-label="Undo" disabled>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <button id="btn-redo" class="hist-btn" type="button" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+  </div>
 </div>
 
 <button class="show-panel-tab" id="showPanelTab" aria-label="Show panel" title="Show panel">
@@ -2102,6 +2369,73 @@
 
 <div class="rec-indicator" id="recIndicator">REC <span id="recTime">0.0s</span></div>
 <div class="toast" id="toast"></div>
+
+<!-- v2.2 onboarding: first-run Welcome fork (wizard / tutorial / just start) -->
+<div class="modal-bg welcome-modal" id="welcomeModal">
+  <div class="modal">
+    <h3>Welcome</h3>
+    <p class="sub">How would you like to start?</p>
+    <div class="welcome-fork">
+      <button class="welcome-choice primary" id="btn-welcome-wizard" type="button">
+        <span class="wc-title">Guided setup</span>
+        <span class="wc-desc">Answer a few quick questions and we'll configure the tool for you.</span>
+      </button>
+      <button class="welcome-choice" id="btn-welcome-tutorial" type="button">
+        <span class="wc-title">Show me how it works</span>
+        <span class="wc-desc">A quick tour of the main steps, from picking brands to exporting.</span>
+      </button>
+      <button class="welcome-choice" id="btn-welcome-skip" type="button">
+        <span class="wc-title">Just start</span>
+        <span class="wc-desc">Jump straight in with sensible defaults — you can set things up later.</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- v2.2 setup wizard (role → use-case → tweaks → review) -->
+<div class="modal-bg wizard-modal" id="wizardModal">
+  <div class="modal">
+    <div class="wiz-head">
+      <div class="wiz-dots" id="wizDots"></div>
+      <button class="wiz-close" id="btn-wiz-close" type="button" aria-label="Close">&times;</button>
+    </div>
+    <h3 id="wizTitle">Guided setup</h3>
+    <p class="sub" id="wizSub"></p>
+    <div class="wiz-body" id="wizBody"></div>
+    <div class="wiz-footer">
+      <button class="wiz-btn" id="btn-wiz-back" type="button">Back</button>
+      <div class="wiz-foot-right">
+        <button class="wiz-btn ghost" id="btn-wiz-skip" type="button">Skip — I'll set it up myself</button>
+        <button class="wiz-btn primary" id="btn-wiz-next" type="button">Next</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- v2.2 tutorial — step-through with a media slot per step (placeholders for now) -->
+<div class="modal-bg tutorial-modal" id="tutorialModal">
+  <div class="modal">
+    <div class="wiz-head">
+      <div class="wiz-dots" id="tutDots"></div>
+      <button class="wiz-close" id="btn-tut-close" type="button" aria-label="Close">&times;</button>
+    </div>
+    <div class="tut-media" id="tutMedia"></div>
+    <h3 id="tutTitle">How it works</h3>
+    <p class="sub" id="tutBody"></p>
+    <div class="wiz-footer">
+      <button class="wiz-btn" id="btn-tut-back" type="button">Back</button>
+      <div class="wiz-foot-right">
+        <button class="wiz-btn ghost" id="btn-tut-skip" type="button">Skip</button>
+        <button class="wiz-btn primary" id="btn-tut-next" type="button">Next</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- v2.2 onboarding: persistent tutorial launcher -->
+<button class="help-fab" id="btnHowItWorks" type="button" title="How this tool works">
+  <span class="help-fab-icon">?</span> How it works
+</button>
 
 <!-- Inlined: gifenc (https://github.com/mattdesl/gifenc) -->
 <script>
@@ -4123,6 +4457,10 @@ const state = {
   // keeps its own copy in layoutShared and they swap on layout switch.
   layoutLink: false,
   layoutShared: { line: null, ring: null },
+  // v2.2 onboarding: has the user passed the first-run Welcome fork, and have
+  // they seen the tutorial? Both default false for a brand-new visitor; restore()
+  // sets them true for anyone with existing saved state (don't re-onboard).
+  onboarded: false, tutorialSeen: false,
 };
 
 // Anchor table: tuned values for canonical icon counts. Auto values for any
@@ -4182,11 +4520,54 @@ function getAutoValue(key, n) {
 // and reflect that into both state and the UI. Called whenever the icon count changes.
 // Composition-level autos (spacing, scale) live on the top-level state.auto; per-segment
 // animation autos live on state.segments[seg].auto.
+// Ring AUTO: radius + icon size scale with icon count, PER aspect ratio (the ring
+// analogue of Line's Spacing/Scale). Each aspect has its own anchors; values
+// interpolate linearly between them and clamp at the first/last anchor — so counts
+// below the smallest anchor hold flat rather than shrinking further. 16:9 and 21:9
+// share one curve. (Tilt + angle still come from RING_AUTO_BY_ASPECT.)
+const RING_16_9_ANCHORS = [
+  { n: 3,  radius: 20, size: 18 },
+  { n: 10, radius: 29, size: 15 },
+  { n: 16, radius: 40, size: 14 },
+  { n: 25, radius: 48, size: 12 },
+];
+const RING_COUNT_ANCHORS_BY_ASPECT = {
+  '16:9': RING_16_9_ANCHORS,
+  '21:9': RING_16_9_ANCHORS,
+  '4:3':  [ { n: 7, radius: 29, size: 14 }, { n: 25, radius: 57, size: 9  } ],
+  '9:16': [ { n: 7, radius: 60, size: 11 }, { n: 25, radius: 87, size: 7  } ],
+  '4:5':  [ { n: 7, radius: 47, size: 14 }, { n: 25, radius: 81, size: 10 } ],
+  '1:1':  [ { n: 7, radius: 61, size: 17 }, { n: 25, radius: 75, size: 10 } ],
+};
+function ringAutoForCount(n, aspect) {
+  const a = RING_COUNT_ANCHORS_BY_ASPECT[aspect || state.aspectRatio] || RING_16_9_ANCHORS;
+  if (n <= a[0].n) return { radius: a[0].radius, size: a[0].size };
+  const last = a[a.length - 1];
+  if (n >= last.n) return { radius: last.radius, size: last.size };
+  for (let i = 0; i < a.length - 1; i++) {
+    if (n <= a[i + 1].n) {
+      const f = (n - a[i].n) / (a[i + 1].n - a[i].n);
+      return {
+        radius: Math.round(a[i].radius + (a[i + 1].radius - a[i].radius) * f),
+        size:   Math.round(a[i].size   + (a[i + 1].size   - a[i].size)   * f),
+      };
+    }
+  }
+  return { radius: last.radius, size: last.size };
+}
+function applyRingCountAuto() {
+  const rc = ringAutoForCount(state.count, state.aspectRatio);
+  state.ring.radius = rc.radius;
+  state.ring.size = rc.size;
+}
+
 function recomputeAuto() {
   const n = state.count;
   ['spacing', 'scale'].forEach(key => {
     if (state.auto[key]) state[key] = getAutoValue(key, n);
   });
+  // Ring AUTO: radius + icon size follow the count anchors.
+  if (state.ring && state.ring.auto) applyRingCountAuto();
   if (state.segments) {
     SEGMENT_KEYS.forEach(seg => {
       const segObj = state.segments[seg];
@@ -4386,11 +4767,13 @@ function sanitizeSVG(svgText) {
   return s.trim();
 }
 
-function persist() {
-  // Sync the active segment with the live top-level mirror before saving so we
-  // don't lose tweaks made via the legacy slider IDs.
+// The persisted shape of `state` — also reused by the template store so a saved
+// template captures exactly what persist() would.
+function serializeState() {
+  // Sync the active segment with the live top-level mirror before serializing so
+  // we don't lose tweaks made via the legacy slider IDs.
   syncActiveSegmentFromTop();
-  const toSave = {
+  return {
     count: state.count, spacing: state.spacing, scale: state.scale, a8cScale: state.a8cScale, stageZoom: state.stageZoom,
     duration: state.duration, stagger: state.stagger, slideDistance: state.slideDistance,
     startScale: state.startScale, easing: state.easing, bgOn: state.bgOn, bgColor: state.bgColor,
@@ -4404,8 +4787,91 @@ function persist() {
     theme: state.theme, panelState: state.panelState, panelX: state.panelX, panelY: state.panelY,
     layout: state.layout, ring: state.ring,
     layoutLink: state.layoutLink, layoutShared: state.layoutShared,
+    onboarded: state.onboarded, tutorialSeen: state.tutorialSeen,
   };
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave)); } catch (e) {}
+}
+function persist() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(serializeState())); } catch (e) {}
+  recordHistory();
+}
+
+// ── Undo / Redo history ──────────────────────────────────────────────────────
+// In-session (memory only; not persisted across reloads — snapshots carry the
+// icon library and would blow the localStorage quota). Every committed change
+// funnels through persist() → recordHistory(), debounced so a slider drag is one
+// step. Undo/redo restore a serialized snapshot. UI chrome (theme, panel
+// position, onboarding) is excluded so undo only affects the composition.
+const HISTORY_MAX = 50;
+const HISTORY_DEBOUNCE = 220;
+const HISTORY_SKIP_KEYS = new Set(['theme', 'panelState', 'panelX', 'panelY', 'onboarded', 'tutorialSeen']);
+let histUndo = [], histRedo = [], histLast = null, histTimer = null, histSuspend = false, historyReady = false;
+
+function initHistory() {
+  histLast = JSON.stringify(serializeState());
+  histUndo = []; histRedo = [];
+  historyReady = true;
+  updateHistoryUI();
+}
+function recordHistory() {
+  if (!historyReady || histSuspend) return;
+  clearTimeout(histTimer);
+  histTimer = setTimeout(() => {
+    const snap = JSON.stringify(serializeState());
+    if (snap === histLast) return;
+    histUndo.push(histLast);
+    if (histUndo.length > HISTORY_MAX) histUndo.shift();
+    histLast = snap;
+    histRedo = [];
+    updateHistoryUI();
+  }, HISTORY_DEBOUNCE);
+}
+function restoreHistorySnapshot(snap) {
+  histSuspend = true;
+  const data = JSON.parse(snap);
+  Object.keys(data).forEach(k => { if (!HISTORY_SKIP_KEYS.has(k)) state[k] = data[k]; });
+  ensureAssignments();
+  applyAspectRatio(state.aspectRatio || '16:9');
+  if (data.resolution) { state.resolution = data.resolution; populateResolutionDropdown(); }
+  recomputeAuto();
+  renderLibrary();
+  bindUIFromState();
+  document.querySelectorAll('.section[data-segment]').forEach(p => p.classList.toggle('open', p.dataset.segment === state.activeSegment));
+  applyZoom();
+  renderStage(true);
+  persist();          // save restored state (recordHistory is suspended)
+  histSuspend = false;
+  updateHistoryUI();
+}
+function undo() {
+  if (!histUndo.length) return;
+  clearTimeout(histTimer);
+  histRedo.push(histLast);
+  histLast = histUndo.pop();
+  restoreHistorySnapshot(histLast);
+}
+function redo() {
+  if (!histRedo.length) return;
+  clearTimeout(histTimer);
+  histUndo.push(histLast);
+  histLast = histRedo.pop();
+  restoreHistorySnapshot(histLast);
+}
+function updateHistoryUI() {
+  const u = document.getElementById('btn-undo'), r = document.getElementById('btn-redo');
+  if (u) u.disabled = histUndo.length === 0;
+  if (r) r.disabled = histRedo.length === 0;
+}
+function bindHistory() {
+  const u = document.getElementById('btn-undo'); if (u) u.onclick = undo;
+  const r = document.getElementById('btn-redo'); if (r) r.onclick = redo;
+  document.addEventListener('keydown', (e) => {
+    if (!(e.metaKey || e.ctrlKey)) return;
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) return; // let inputs do native undo
+    const k = e.key.toLowerCase();
+    if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+    else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); redo(); }
+  });
 }
 
 const SEGMENT_KEYS = ['logosIn', 'logosOut', 'a8cIn', 'a8cOut'];
@@ -4494,6 +4960,13 @@ function restore() {
     if (!state.layoutShared || typeof state.layoutShared !== 'object') {
       state.layoutShared = { line: null, ring: null };
     }
+    // v2.2: anyone with an existing save has already used the tool — don't show
+    // them the first-run Welcome fork or tutorial. (New visitors never reach here:
+    // restore() returned false above when there was no saved state.) Check the
+    // saved `data`, NOT `state` — state already carries the default `false`, so a
+    // `typeof state.x !== 'boolean'` test would never fire for upgrading users.
+    if (typeof data.onboarded !== 'boolean') state.onboarded = true;
+    if (typeof data.tutorialSeen !== 'boolean') state.tutorialSeen = true;
     if (typeof data.duration === 'number') {
       // Old format: copy top-level animation params into logosIn.
       const li = state.segments.logosIn;
@@ -4941,8 +5414,12 @@ function applyCountLimitForAspect() {
 // Ring "Auto" mode: write the four aspect-driven params from the table for the
 // current aspect ratio. No-op for aspects missing from the table (falls back to 16:9).
 function applyRingAutoFromAspect() {
+  // Tilt + angle are aspect-driven; radius + icon size are count-driven (see
+  // RING_COUNT_ANCHORS) so the ring scales with icon count like Line does.
   const tbl = RING_AUTO_BY_ASPECT[state.aspectRatio] || RING_AUTO_BY_ASPECT['16:9'];
-  RING_AUTO_KEYS.forEach(k => { state.ring[k] = tbl[k]; });
+  state.ring.tilt = tbl.tilt;
+  state.ring.angle = tbl.angle;
+  applyRingCountAuto();
 }
 
 // Non-destructive AUTO: entering AUTO from CUSTOM stashes the user's playground
@@ -6459,7 +6936,7 @@ function downloadBlob(blob, filename) {
 
 // Build a descriptive filename like "icon-stage_1920x1080_high-q_v1.mp4".
 // `extra` is an optional segment (e.g. 'preset' for preset JSON).
-const APP_VERSION = 'v2.1';
+const APP_VERSION = 'v2.2';
 function buildFilename(ext, extra) {
   const parts = ['product-logos-slide-tool'];
   if (extra) parts.push(extra);
@@ -7050,6 +7527,26 @@ function applyLayoutShared(snap) {
   LAYOUT_SHARED_KEYS.forEach(k => { if (k in snap) state[k] = snap[k]; });
 }
 
+// Switch stage layout ('line' | 'ring'). Hoisted to global (was a bindEvents
+// closure) so the v2.2 setup wizard can switch layout programmatically too.
+function setLayout(mode) {
+  if (state.layout === mode) return;
+  if (scrubPaused) setScrubPaused(false); // don't carry a frozen frame across layouts
+  // Unlinked: each layout keeps its own copy of the shared settings.
+  // Stash the outgoing layout's values, restore the incoming one's.
+  if (!state.layoutLink) {
+    state.layoutShared[state.layout] = snapshotLayoutShared();
+    applyLayoutShared(state.layoutShared[mode]);
+  }
+  state.layout = mode;
+  recomputeAuto();
+  ensureAssignments();
+  autoFillNewSlots();
+  bindUIFromState();
+  renderStage(true);
+  persist();
+}
+
 // v2.1 — sync gradient background controls: active mode button, color-B
 // inputs, slider values, and which gradient rows are visible for the mode.
 function applyBgUI() {
@@ -7565,23 +8062,7 @@ function bindEvents() {
 
   // v2.1 — Layout toggle + ring controls. Ring sliders write straight into
   // state.ring; the rAF loop reads it live, so no renderStage needed on input.
-  const setLayout = (mode) => {
-    if (state.layout === mode) return;
-    if (scrubPaused) setScrubPaused(false); // don't carry a frozen frame across layouts
-    // Unlinked: each layout keeps its own copy of the shared settings.
-    // Stash the outgoing layout's values, restore the incoming one's.
-    if (!state.layoutLink) {
-      state.layoutShared[state.layout] = snapshotLayoutShared();
-      applyLayoutShared(state.layoutShared[mode]);
-    }
-    state.layout = mode;
-    recomputeAuto();
-    ensureAssignments();
-    autoFillNewSlots();
-    bindUIFromState();
-    renderStage(true);
-    persist();
-  };
+  // setLayout() is now a global function (hoisted so the setup wizard can use it).
   document.getElementById('btn-layout-line').onclick = () => setLayout('line');
   document.getElementById('btn-layout-ring').onclick = () => setLayout('ring');
   // Link toggle. Turning it either way re-seeds both stashes from the current
@@ -7809,6 +8290,7 @@ function bindEvents() {
   });
 
   document.getElementById('btn-load-defaults').onclick = loadDefaults;
+  document.getElementById('btn-overall-reset').onclick = loadDefaults; // same as "Load defaults"
   document.getElementById('btn-clear-lib').onclick = () => {
     if (confirm('Clear the entire icon library? Your slot assignments will be cleared too.')) {
       state.library = [];
@@ -7984,6 +8466,577 @@ function bindEvents() {
   initDrag();
 }
 
+// ── v2.2 onboarding ──────────────────────────────────────────────────────────
+// First-run Welcome fork → Guided setup (wizard) / Show me how it works (tutorial)
+// / Just start. Both onboarding flags persist so returning visitors skip this.
+// The wizard and tutorial themselves are built in later phases; their entry
+// points are stubs for now.
+function markOnboarded() {
+  if (!state.onboarded) { state.onboarded = true; persist(); }
+}
+function openWelcome() { document.getElementById('welcomeModal').classList.add('open'); }
+function closeWelcome() { document.getElementById('welcomeModal').classList.remove('open'); }
+
+// ── Setup wizard ─────────────────────────────────────────────────────────────
+// Role (light touch) → use-case (drives settings) → tweaks (brands / background /
+// size) → review. applyWizard() writes the mapped settings into `state` and runs
+// the normal apply pipeline. Everything stays fully editable in the tool after.
+const WIZ_ROLES = [
+  { id: 'marketing',   label: 'Marketing',      useCases: ['reel', 'square', 'email'] },
+  { id: 'design',      label: 'Design',         useCases: ['hero', 'loop', 'slide'] },
+  { id: 'sales',       label: 'Sales',          useCases: ['slide', 'email', 'wallpaper'] },
+  { id: 'engineering', label: 'Engineering',    useCases: ['hero', 'loop'] },
+  { id: 'explore',     label: 'Just exploring', useCases: 'all' },
+];
+const WIZ_USECASES = [
+  { id: 'reel',      label: 'Social Reel / Story',  meta: 'Vertical video · 9:16',   layout: 'line', ratio: '9:16', format: 'MP4',              size: 'standard', bg: 'solid',    feel: 'snappy' },
+  { id: 'square',    label: 'Social post (square)', meta: 'Square video · 1:1',      layout: 'line', ratio: '1:1',  format: 'MP4',              size: 'standard', bg: 'solid',    feel: 'balanced' },
+  { id: 'slide',     label: 'Slide / Presentation', meta: 'Widescreen · 16:9',       layout: 'line', ratio: '16:9', format: 'MP4',              size: 'large',    bg: 'solid',    feel: 'balanced' },
+  { id: 'hero',      label: 'Website hero',         meta: 'Ultra-wide orbit · 21:9', layout: 'ring', ratio: '21:9', format: 'Interactive HTML', size: 'large',    bg: 'gradient', feel: 'calm' },
+  { id: 'loop',      label: 'Logo loop / Sticker',  meta: 'Transparent orbit · 1:1', layout: 'ring', ratio: '1:1',  format: 'WebM (alpha)',     size: 'standard', bg: 'off',      feel: 'calm' },
+  { id: 'email',     label: 'Email / Banner',       meta: 'Wide still · 16:9',       layout: 'line', ratio: '16:9', format: 'PNG still',        size: 'standard', bg: 'solid',    feel: 'balanced' },
+  { id: 'wallpaper', label: 'Wallpaper / Zoom bg',  meta: 'Widescreen loop · 16:9',  layout: 'line', ratio: '16:9', format: 'MP4',              size: 'large',    bg: 'gradient', feel: 'calm' },
+];
+// Line vs Ring, chosen explicitly on its own step. Seeded from the use-case's
+// implied layout but the user's pick wins. Thumbnails are animated: Line renders
+// the user-authored Lottie; Ring is a code animation (see initWizThumbs).
+const WIZ_LAYOUTS = [
+  { id: 'line', label: 'Line', desc: 'A row that animates in and out' },
+  { id: 'ring', label: 'Ring', desc: 'A continuous 3D orbit' },
+];
+const WIZ_STEPS = 5;
+const FEEL_LABEL = { calm: 'Calm', balanced: 'Balanced', snappy: 'Snappy' };
+let wiz = null;
+
+function wizUseCase() { return WIZ_USECASES.find(u => u.id === (wiz && wiz.useCase)); }
+
+function wizDefaultBrands() {
+  // Prefer the current on-stage selection; else the curated 15-set; else first 15.
+  const cur = (state.assignments || []).filter(Boolean);
+  if (cur.length) return new Set(cur);
+  const curated = (DEFAULT_LAYOUTS[15] || []).filter(Boolean);
+  return new Set(curated.length ? curated : DEFAULT_ICONS.slice(0, 15).map(d => d.id));
+}
+
+// ── Templates (named, in-app, localStorage) ──────────────────────────────────
+// Separate from the main state key. A template captures serializeState(); loading
+// one copies the design fields back (never the UI chrome / onboarding flags).
+const TEMPLATES_KEY = 'icon-stage-templates-v1';
+const TEMPLATE_SKIP_KEYS = new Set(['theme', 'panelState', 'panelX', 'panelY', 'onboarded', 'tutorialSeen']);
+
+function loadTemplates() {
+  try { const a = JSON.parse(localStorage.getItem(TEMPLATES_KEY) || '[]'); return Array.isArray(a) ? a : []; }
+  catch (e) { return []; }
+}
+function saveTemplates(list) { try { localStorage.setItem(TEMPLATES_KEY, JSON.stringify(list)); } catch (e) {} }
+function addTemplate(name) {
+  const list = loadTemplates();
+  list.push({ id: 't_' + Date.now(), name: (name || '').trim().slice(0, 40) || 'Untitled', createdAt: new Date().toISOString(), state: serializeState() });
+  saveTemplates(list);
+  return list;
+}
+function deleteTemplate(id) { saveTemplates(loadTemplates().filter(t => t.id !== id)); }
+function applyTemplate(tpl) {
+  if (!tpl || !tpl.state) return;
+  const s = tpl.state;
+  Object.keys(s).forEach(k => { if (!TEMPLATE_SKIP_KEYS.has(k)) state[k] = s[k]; });
+  ensureAssignments();
+  applyAspectRatio(state.aspectRatio || '16:9');
+  if (s.resolution) { state.resolution = s.resolution; populateResolutionDropdown(); }
+  recomputeAuto();
+  bindUIFromState();
+  applyZoom();
+  renderStage(true);
+  persist();
+}
+function wizEscape(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function wizFmtDate(iso) { try { return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }); } catch (e) { return ''; } }
+
+function openWizard() {
+  const templates = loadTemplates();
+  wiz = { step: templates.length ? 0 : 1, role: null, useCase: null, layout: null, brands: null, bgMode: null, bgColor: '#ffffff', size: null };
+  document.getElementById('wizardModal').classList.add('open');
+  renderWizard();
+}
+function closeWizard() { destroyWizThumbs(); document.getElementById('wizardModal').classList.remove('open'); }
+
+// ── Animated step-3 layout thumbnails ────────────────────────────────────────
+// Both are standalone code (no Lottie dependency). Line = 5 dots in a row, each
+// growing + fading in then out, staggered from the centre outward (a CSS re-creation
+// of the original Lottie). Ring = 8 dots orbit a tilted ellipse, front dots larger
+// and a saturated blue, back dots smaller and lighter. Both use the same blue so
+// the pair reads as one set.
+let wizRingRAF = null;
+
+function destroyWizThumbs() {
+  if (wizRingRAF) { cancelAnimationFrame(wizRingRAF); wizRingRAF = null; }
+}
+
+function initWizThumbs() {
+  destroyWizThumbs();
+  const lineHost = document.getElementById('wiz-thumb-line');
+  if (lineHost) startWizLine(lineHost);
+  const ringHost = document.getElementById('wiz-thumb-ring');
+  if (ringHost) startWizRing(ringHost);
+}
+
+// Line thumbnail — pure CSS/SVG. Dot geometry + timing mirror the original Lottie
+// comp (660×400, ~3.77s loop, dots at the 5 x-positions, growing 0.44→1× and fading
+// in/out). The stagger is applied via per-dot animation-delay, centre dot first.
+function startWizLine(host) {
+  host.innerHTML =
+    '<svg viewBox="0 0 660 400" class="wiz-line-svg" preserveAspectRatio="xMidYMid meet">' +
+    '<circle class="wld" cx="330.125" cy="200" r="34.17" style="animation-delay:0s"/>' +
+    '<circle class="wld" cx="223.625" cy="200" r="34.17" style="animation-delay:0.1s"/>' +
+    '<circle class="wld" cx="436.625" cy="200" r="34.17" style="animation-delay:0.1s"/>' +
+    '<circle class="wld" cx="117.125" cy="200" r="34.17" style="animation-delay:0.233s"/>' +
+    '<circle class="wld" cx="543.125" cy="200" r="34.17" style="animation-delay:0.233s"/>' +
+    '</svg>';
+}
+
+function startWizRing(host) {
+  const NS = 'http://www.w3.org/2000/svg';
+  const N = 8, cx = 80, cy = 52, rx = 52, ry = 19, theta = -12 * Math.PI / 180;
+  const ct = Math.cos(theta), st = Math.sin(theta);
+  const cBack = [163, 193, 251], cFront = [24, 105, 253]; // light → #1869FD (Line blue)
+  const rBack = 5, rFront = 9.5;
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 160 104');
+  svg.setAttribute('class', 'wiz-ring-svg');
+  const circles = [];
+  for (let i = 0; i < N; i++) { const c = document.createElementNS(NS, 'circle'); svg.appendChild(c); circles.push(c); }
+  host.innerHTML = '';
+  host.appendChild(svg);
+  const draw = (now) => {
+    const off = (now / 6400) * Math.PI * 2; // counter-clockwise orbit
+    const pts = [];
+    for (let i = 0; i < N; i++) {
+      const a = (i / N) * Math.PI * 2 + off;
+      const ex = rx * Math.cos(a), ey = ry * Math.sin(a);
+      pts.push({ sx: cx + ex * ct - ey * st, sy: cy + ex * st + ey * ct, d: (Math.sin(a) + 1) / 2 });
+    }
+    pts.sort((p, q) => p.d - q.d); // paint back-to-front
+    pts.forEach((p, idx) => {
+      const c = circles[idx];
+      const r = rBack + (rFront - rBack) * p.d;
+      const col = cBack.map((v, k) => Math.round(v + (cFront[k] - v) * p.d));
+      c.setAttribute('cx', p.sx.toFixed(2));
+      c.setAttribute('cy', p.sy.toFixed(2));
+      c.setAttribute('r', r.toFixed(2));
+      c.setAttribute('fill', `rgb(${col[0]},${col[1]},${col[2]})`);
+    });
+    wizRingRAF = requestAnimationFrame(draw);
+  };
+  wizRingRAF = requestAnimationFrame(draw);
+}
+
+// Lightweight live preview of the chosen layout, refreshed as brands toggle in
+// step 4. Line = a centered row; Ring = a tilted orbit with depth (front icons
+// larger/sharper, back icons smaller/faded/blurred) to echo the real stage.
+function renderWizPreview() {
+  const stage = document.getElementById('wiz-preview-stage');
+  if (!stage) return;
+  const rect = stage.getBoundingClientRect();
+  // Guard against a premature measurement (box not laid out at full width yet) —
+  // re-run once layout settles so the ring isn't sized against a stale width.
+  if (rect.width < 300) { requestAnimationFrame(renderWizPreview); return; }
+  const uc = wizUseCase();
+  const layout = wiz.layout || (uc && uc.layout) || 'line';
+  const cap = uc ? getMaxCountForAspect(uc.ratio) : 25;
+  const icons = DEFAULT_ICONS.filter(d => wiz.brands.has(d.id)).slice(0, cap);
+  stage.innerHTML = '';
+  if (!icons.length) return;
+  const W = rect.width, H = rect.height;
+  const cx = W / 2, cy = H / 2;
+  const n = icons.length;
+  const orb = (icon, css) => { const el = document.createElement('div'); el.className = 'wiz-orb'; el.title = icon.name; el.innerHTML = icon.svg; el.style.cssText = css; stage.appendChild(el); };
+  if (layout === 'ring') {
+    // Tilted ellipse with depth: front (bottom) icons larger + fully opaque, back
+    // (top) icons smaller + slightly faded. No blur. Fewer icons → smaller ring +
+    // bigger icons; more icons → bigger ring + smaller icons.
+    const t = Math.max(0, Math.min(1, (n - 2) / 23)); // 0 few → 1 many
+    const rx = W * (0.22 + 0.035 * t);                // ring grows modestly with count
+    const ry = rx * 0.38;                             // flatter + smaller → breathing room at edges
+    const theta = -12 * Math.PI / 180, ct = Math.cos(theta), st = Math.sin(theta);
+    const front = 52 - 13 * t, back = 32 - 13 * t;    // icons shrink as count grows
+    const a0 = -Math.PI * 0.5;                        // fixed snapshot rotation
+    const data = icons.map((icon, i) => {
+      const a = a0 + (i / n) * Math.PI * 2;
+      const ex = rx * Math.cos(a), ey = ry * Math.sin(a);
+      const d = (Math.sin(a) + 1) / 2;                // 0 back → 1 front
+      return { icon, sx: cx + ex * ct - ey * st, sy: cy + ex * st + ey * ct, d };
+    });
+    data.sort((p, q) => p.d - q.d);                   // paint back-to-front
+    data.forEach(p => {
+      const size = back + (front - back) * p.d;
+      orb(p.icon, `width:${size.toFixed(1)}px;height:${size.toFixed(1)}px;left:${(p.sx - size / 2).toFixed(1)}px;top:${(p.sy - size / 2).toFixed(1)}px;opacity:${(0.6 + 0.4 * p.d).toFixed(2)};z-index:${Math.round(p.d * 100)};`);
+    });
+  } else {
+    const gap = 6;
+    let size = Math.max(10, Math.min(30, (W * 0.9 - gap * (n - 1)) / n));
+    const totalW = n * size + (n - 1) * gap;
+    let x = cx - totalW / 2;
+    icons.forEach(icon => { orb(icon, `width:${size}px;height:${size}px;left:${x}px;top:${cy - size / 2}px;`); x += size + gap; });
+  }
+}
+
+function renderWizard() {
+  if (wiz.step !== 3) destroyWizThumbs(); // stop thumbnail animations when off the layout step
+  const dots = document.getElementById('wizDots');
+  dots.innerHTML = '';
+  for (let i = 1; i <= WIZ_STEPS; i++) {
+    const d = document.createElement('span');
+    d.className = 'wiz-dot' + (i === wiz.step ? ' current' : (i < wiz.step ? ' done' : ''));
+    dots.appendChild(d);
+  }
+  const title = document.getElementById('wizTitle');
+  const sub = document.getElementById('wizSub');
+  const body = document.getElementById('wizBody');
+  const back = document.getElementById('btn-wiz-back');
+  const next = document.getElementById('btn-wiz-next');
+  back.hidden = wiz.step <= 1;
+
+  if (wiz.step === 0) {
+    const templates = loadTemplates();
+    title.textContent = 'Start from a template';
+    sub.textContent = 'Reuse a saved setup, or start fresh.';
+    body.innerHTML = '<div class="wiz-tpl-list">' + templates.map(t =>
+      `<div class="wiz-tpl">
+         <button class="wiz-tpl-use" data-use="${t.id}" type="button">
+           <span class="wiz-tpl-name">${wizEscape(t.name)}</span>
+           <span class="wcard-meta">${wizFmtDate(t.createdAt)}</span>
+         </button>
+         <button class="wiz-tpl-del" data-del="${t.id}" type="button" title="Delete template" aria-label="Delete">&times;</button>
+       </div>`).join('') + '</div>';
+    body.querySelectorAll('[data-use]').forEach(b => b.onclick = () => {
+      const t = loadTemplates().find(x => x.id === b.dataset.use);
+      applyTemplate(t); closeWizard(); showToast('Template applied');
+    });
+    body.querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
+      deleteTemplate(b.dataset.del);
+      if (!loadTemplates().length) wiz.step = 1;
+      renderWizard();
+    });
+    next.textContent = 'Start fresh';
+    next.disabled = false;
+
+  } else if (wiz.step === 1) {
+    title.textContent = 'Who are you?';
+    sub.textContent = 'Just to suggest a starting point — it sets nothing on its own.';
+    body.innerHTML = '<div class="wiz-chips">' + WIZ_ROLES.map(r =>
+      `<button class="wiz-chip${wiz.role === r.id ? ' selected' : ''}" data-role="${r.id}">${r.label}</button>`).join('') + '</div>';
+    body.querySelectorAll('[data-role]').forEach(b => b.onclick = () => { wiz.role = b.dataset.role; renderWizard(); });
+    next.textContent = 'Next';
+    next.disabled = !wiz.role;
+
+  } else if (wiz.step === 2) {
+    title.textContent = 'What are you making?';
+    sub.textContent = 'This sets the layout, aspect, format and motion for you.';
+    const role = WIZ_ROLES.find(r => r.id === wiz.role);
+    const suggested = role && role.useCases !== 'all' ? role.useCases : WIZ_USECASES.map(u => u.id);
+    const ordered = [...WIZ_USECASES].sort((a, b) => (suggested.indexOf(b.id) >= 0) - (suggested.indexOf(a.id) >= 0));
+    body.innerHTML = '<div class="wiz-cards">' + ordered.map(u =>
+      `<button class="wiz-card${wiz.useCase === u.id ? ' selected' : ''}" data-uc="${u.id}">
+        <span class="wcard-title">${u.label}</span><span class="wcard-meta">${u.meta}</span></button>`).join('') + '</div>';
+    body.querySelectorAll('[data-uc]').forEach(b => b.onclick = () => {
+      wiz.useCase = b.dataset.uc;
+      // Seed step-3 defaults from the use-case (first time only).
+      const uc = wizUseCase();
+      if (wiz.layout == null) wiz.layout = uc.layout;
+      if (wiz.bgMode == null) wiz.bgMode = uc.bg;
+      if (wiz.size == null) wiz.size = uc.size;
+      renderWizard();
+    });
+    next.textContent = 'Next';
+    next.disabled = !wiz.useCase;
+
+  } else if (wiz.step === 3) {
+    if (wiz.layout == null) { const u = wizUseCase(); wiz.layout = u ? u.layout : 'line'; }
+    title.textContent = 'Line or Ring?';
+    sub.textContent = 'Line animates a row in and out. Ring is a continuous 3D orbit.';
+    body.innerHTML = '<div class="wiz-layout-cards">' + WIZ_LAYOUTS.map(l =>
+      `<button class="wiz-layout-card${wiz.layout === l.id ? ' selected' : ''}" data-layout="${l.id}">
+        <span class="wiz-thumb" id="wiz-thumb-${l.id}"></span>
+        <span class="wcard-title">${l.label}</span>
+        <span class="wcard-meta">${l.desc}</span></button>`).join('') + '</div>';
+    // Selecting a card only toggles state/highlight — no full re-render, so the
+    // thumbnail animations keep playing instead of restarting on each click.
+    body.querySelectorAll('[data-layout]').forEach(b => b.onclick = () => {
+      wiz.layout = b.dataset.layout;
+      body.querySelectorAll('[data-layout]').forEach(x => x.classList.toggle('selected', x === b));
+    });
+    initWizThumbs();
+    next.textContent = 'Next';
+    next.disabled = !wiz.layout;
+
+  } else if (wiz.step === 4) {
+    if (!wiz.brands) wiz.brands = wizDefaultBrands();
+    const uc = wizUseCase();
+    const cap = getMaxCountForAspect(uc.ratio);
+    title.textContent = 'Pick your brands';
+    sub.textContent = 'Choose which logos appear — the preview updates as you go.';
+    body.innerHTML = `
+      <div class="wiz-field">
+        <label>Brands</label>
+        <div class="wiz-brands-actions">
+          <button class="wiz-mini" id="wiz-brands-all">Select all</button>
+          <button class="wiz-mini" id="wiz-brands-none">Clear</button>
+        </div>
+        <div class="wiz-brands-meta" id="wiz-brands-meta"></div>
+        <div class="wiz-brands" id="wiz-brands"></div>
+      </div>
+      <div class="wiz-preview">
+        <div class="wiz-preview-stage" id="wiz-preview-stage"></div>
+        <div class="wiz-preview-note"><span class="wiz-note-i">i</span> You will be able to edit icons and position later</div>
+      </div>`;
+    const grid = document.getElementById('wiz-brands');
+    const meta = document.getElementById('wiz-brands-meta');
+    const paintMeta = () => {
+      const n = wiz.brands.size;
+      meta.textContent = `${n} selected` + (n > cap ? ` — only the first ${cap} will be used for this aspect` : ` (max ${cap})`);
+    };
+    DEFAULT_ICONS.forEach(icon => {
+      const tile = document.createElement('button');
+      tile.className = 'wiz-brand' + (wiz.brands.has(icon.id) ? ' selected' : '');
+      tile.title = icon.name;
+      tile.innerHTML = icon.svg;
+      tile.onclick = () => {
+        if (wiz.brands.has(icon.id)) wiz.brands.delete(icon.id); else wiz.brands.add(icon.id);
+        tile.classList.toggle('selected');
+        paintMeta();
+        renderWizPreview();
+        document.getElementById('btn-wiz-next').disabled = wiz.brands.size < 2;
+      };
+      grid.appendChild(tile);
+    });
+    paintMeta();
+    renderWizPreview();
+    document.getElementById('wiz-brands-all').onclick = () => { wiz.brands = new Set(DEFAULT_ICONS.map(d => d.id)); renderWizard(); };
+    document.getElementById('wiz-brands-none').onclick = () => { wiz.brands = new Set(); renderWizard(); };
+    next.textContent = 'Next';
+    next.disabled = wiz.brands.size < 2;
+
+  } else if (wiz.step === 5) {
+    const uc = wizUseCase();
+    const layout = wiz.layout || uc.layout;
+    const r = ASPECT_RATIOS[uc.ratio];
+    const factor = wiz.size === 'small' ? 0.5 : wiz.size === 'large' ? 2 : 1;
+    const res = Math.round(r.w * factor) + '×' + Math.round(r.h * factor);
+    const cap = getMaxCountForAspect(uc.ratio);
+    const brandCount = Math.min(wiz.brands.size, cap);
+    const bgLabel = 'White';
+    // Recommended export follows the use-case unless the layout was overridden.
+    const recFormat = layout === uc.layout ? uc.format : (layout === 'ring' ? 'Interactive HTML' : 'MP4');
+    title.textContent = 'Review';
+    sub.textContent = 'Here’s what we’ll set up. You can change anything afterwards.';
+    const rows = [
+      ['Layout', layout === 'ring' ? 'Ring' : 'Line'],
+      ['Aspect ratio', uc.ratio],
+      ['Size', (wiz.size || uc.size).replace(/^./, c => c.toUpperCase()) + ` · ${res}`],
+      ['Background', bgLabel],
+      ['Brands', `${brandCount} logo${brandCount === 1 ? '' : 's'}`],
+      ['Motion feel', FEEL_LABEL[uc.feel]],
+      ['Recommended export', recFormat],
+    ];
+    body.innerHTML = '<ul class="wiz-review">' + rows.map(([k, v]) =>
+      `<li><span class="wr-key">${k}</span><span class="wr-val">${v}</span></li>`).join('') + '</ul>' +
+      `<div class="wiz-tpl-save">
+         <input type="text" id="wiz-tpl-name" placeholder="Save as a template (optional name)" maxlength="40">
+         <button class="wiz-btn" id="wiz-tpl-save-btn" type="button">Save</button>
+       </div>`;
+    document.getElementById('wiz-tpl-save-btn').onclick = () => {
+      const name = document.getElementById('wiz-tpl-name').value.trim();
+      if (!name) { showToast('Enter a name to save this as a template'); return; }
+      applyWizard();       // realize the setup into state first
+      addTemplate(name);   // then snapshot it
+      closeWizard();
+      showToast('Saved “' + name + '” and applied');
+    };
+    next.textContent = 'Open in tool';
+    next.disabled = false;
+  }
+}
+
+function wizNext() {
+  if (wiz.step < WIZ_STEPS) { wiz.step++; renderWizard(); return; }
+  applyWizard();
+  closeWizard();
+  showToast('Setup applied — everything’s editable in the panel');
+}
+function wizBack() { if (wiz.step > 1) { wiz.step--; renderWizard(); } }
+
+// Map a use-case "feel" onto the real animation params.
+function applyFeel(feel, layout) {
+  if (layout === 'ring') {
+    state.ring.speed = feel === 'snappy' ? 6 : feel === 'calm' ? 2.5 : 3.5;
+    return;
+  }
+  if (feel === 'balanced') return; // keep the designed defaults / auto values
+  const mult = feel === 'calm' ? 1.35 : 0.7; // snappy
+  SEGMENT_KEYS.forEach(k => {
+    const seg = state.segments[k];
+    if (!seg) return;
+    seg.duration = Math.round(Math.max(200, Math.min(3000, seg.duration * mult)));
+    seg.auto.duration = false;
+  });
+  syncTopFromActiveSegment();
+}
+
+// Write the wizard's selection into state and run the normal apply pipeline.
+function applyWizard() {
+  const uc = wizUseCase();
+  if (!uc) return;
+  const layout = wiz.layout || uc.layout;
+  setLayout(layout);               // layout first (resolves aspect caps + shared settings)
+  applyAspectRatio(uc.ratio);      // sets ratio, repopulates resolution options + count caps
+  // Size tier → resolution (Small ½× · Standard 1× · Large 2× of the ratio's base).
+  const r = ASPECT_RATIOS[uc.ratio];
+  const factor = wiz.size === 'small' ? 0.5 : wiz.size === 'large' ? 2 : 1;
+  state.resolution = Math.round(r.w * factor) + 'x' + Math.round(r.h * factor);
+  populateResolutionDropdown();
+  // Background — guided setup always starts on a solid white background,
+  // regardless of layout or use-case. Editable afterwards in the panel.
+  state.bgOn = true; state.bgMode = 'solid'; state.bgColor = '#ffffff';
+  // Brands → count + assignments (capped for the aspect).
+  const cap = getMaxCountForAspect(uc.ratio);
+  const chosen = [...(wiz.brands || [])].slice(0, cap);
+  if (chosen.length >= 2) { state.assignments = chosen.slice(); state.count = chosen.length; ensureAssignments(); }
+  // Motion feel.
+  applyFeel(uc.feel, layout);
+  // Re-apply everything to the live tool.
+  recomputeAuto();
+  bindUIFromState();
+  applyZoom();
+  renderStage(true);
+  persist();
+}
+// ── Tutorial ─────────────────────────────────────────────────────────────────
+// Step-through walkthrough, opened from the Welcome fork or the persistent
+// "How it works" button. Each step has a media slot; `media` is null for now and
+// renders a placeholder. To drop a real clip in, set media to either:
+//   { type: 'video', src: '<data: URI or path>' }   → inlined <video> (autoplay/loop/muted)
+//   { type: 'svg',   markup: '<svg …>' }            → inline SVG/CSS animation
+// Nothing else needs to change — renderTutMedia() handles both.
+const TUTORIAL_STEPS = [
+  {
+    title: 'Pick your brands',
+    body: 'Choose which Automattic logos appear. Click any icon on the stage to swap it, or set them all at once in the Setup Assistant.',
+    media: null,
+  },
+  {
+    title: 'Line or Ring',
+    body: 'Line animates a row of logos in and out across four segments. Ring puts them on a continuous 3D orbit. Switch any time under Stage Layout.',
+    media: null,
+  },
+  {
+    title: 'Tune the motion',
+    body: 'Drag the timeline segments to set speed, stagger and easing. Leave a control on AUTO and it scales itself to your icon count.',
+    media: null,
+  },
+  {
+    title: 'Background & aspect',
+    body: 'Pick a solid or gradient background (or turn it off for transparency), then choose an aspect ratio — 16:9, 9:16, 1:1 and more.',
+    media: null,
+  },
+  {
+    title: 'Export it',
+    body: 'Export MP4 or WebM for video, PNG or SVG for a still frame, or a self-contained interactive HTML page for the Ring.',
+    media: null,
+  },
+];
+let tutStep = 0;
+
+function openTutorial() {
+  tutStep = 0;
+  document.getElementById('tutorialModal').classList.add('open');
+  renderTutorial();
+}
+function closeTutorial() {
+  document.getElementById('tutorialModal').classList.remove('open');
+  if (!state.tutorialSeen) { state.tutorialSeen = true; persist(); }
+}
+
+// Renders the step's clip, or a placeholder until one is supplied.
+function renderTutMedia(step) {
+  const host = document.getElementById('tutMedia');
+  const m = TUTORIAL_STEPS[step].media;
+  if (m && m.type === 'video') {
+    host.innerHTML = `<video src="${m.src}" autoplay loop muted playsinline></video>`;
+  } else if (m && m.type === 'svg') {
+    host.innerHTML = m.markup;
+  } else {
+    host.innerHTML =
+      `<div class="tut-media-ph">
+         <span class="tut-ph-icon">
+           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+         </span>
+         <span class="tut-ph-label">Clip ${step + 1} of ${TUTORIAL_STEPS.length}</span>
+         <span class="tut-ph-hint">Video placeholder — drop the clip in here</span>
+       </div>`;
+  }
+}
+
+function renderTutorial() {
+  const s = TUTORIAL_STEPS[tutStep];
+  const dots = document.getElementById('tutDots');
+  dots.innerHTML = '';
+  TUTORIAL_STEPS.forEach((_, i) => {
+    const d = document.createElement('span');
+    d.className = 'wiz-dot' + (i === tutStep ? ' current' : (i < tutStep ? ' done' : ''));
+    dots.appendChild(d);
+  });
+  renderTutMedia(tutStep);
+  document.getElementById('tutTitle').textContent = s.title;
+  document.getElementById('tutBody').textContent = s.body;
+  document.getElementById('btn-tut-back').hidden = tutStep === 0;
+  const next = document.getElementById('btn-tut-next');
+  next.textContent = tutStep === TUTORIAL_STEPS.length - 1 ? 'Done' : 'Next';
+}
+function tutNext() {
+  if (tutStep < TUTORIAL_STEPS.length - 1) { tutStep++; renderTutorial(); return; }
+  closeTutorial();
+}
+function tutBack() { if (tutStep > 0) { tutStep--; renderTutorial(); } }
+
+function bindOnboarding() {
+  const wm = document.getElementById('welcomeModal');
+  document.getElementById('btn-welcome-wizard').onclick   = () => { markOnboarded(); closeWelcome(); openWizard(); };
+  document.getElementById('btn-welcome-tutorial').onclick = () => { markOnboarded(); closeWelcome(); openTutorial(); };
+  document.getElementById('btn-welcome-skip').onclick     = () => { markOnboarded(); closeWelcome(); };
+  // Dismiss (backdrop click or Esc) counts as "Just start".
+  wm.addEventListener('click', (e) => { if (e.target === wm) { markOnboarded(); closeWelcome(); } });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && wm.classList.contains('open')) { markOnboarded(); closeWelcome(); }
+  });
+  document.getElementById('btnHowItWorks').onclick = () => openTutorial();
+  document.getElementById('btn-open-wizard').onclick = () => openWizard();
+
+  // Tutorial controls.
+  const tm = document.getElementById('tutorialModal');
+  document.getElementById('btn-tut-next').onclick  = () => tutNext();
+  document.getElementById('btn-tut-back').onclick  = () => tutBack();
+  document.getElementById('btn-tut-skip').onclick  = () => closeTutorial();
+  document.getElementById('btn-tut-close').onclick = () => closeTutorial();
+  tm.addEventListener('click', (e) => { if (e.target === tm) closeTutorial(); });
+  document.addEventListener('keydown', (e) => {
+    if (!tm.classList.contains('open')) return;
+    if (e.key === 'Escape') closeTutorial();
+    else if (e.key === 'ArrowRight') tutNext();
+    else if (e.key === 'ArrowLeft') tutBack();
+  });
+
+  // Wizard controls.
+  const wz = document.getElementById('wizardModal');
+  document.getElementById('btn-wiz-next').onclick  = () => wizNext();
+  document.getElementById('btn-wiz-back').onclick  = () => wizBack();
+  document.getElementById('btn-wiz-skip').onclick  = () => closeWizard();
+  document.getElementById('btn-wiz-close').onclick = () => closeWizard();
+  wz.addEventListener('click', (e) => { if (e.target === wz) closeWizard(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && wz.classList.contains('open')) closeWizard();
+  });
+}
+
 function boot() {
   const restored = restore();
   if (!restored) loadDefaults();
@@ -7999,10 +9052,15 @@ function boot() {
     p.classList.toggle('open', p.dataset.segment === state.activeSegment);
   });
   bindEvents();
+  bindOnboarding();
+  bindHistory();
+  initHistory(); // baseline snapshot after everything is set up
   requestAnimationFrame(() => {
     renderStage();
     updateBgIndicator();
   });
+  // First-time visitors (no saved state → onboarded still false) get the Welcome fork.
+  if (!state.onboarded) openWelcome();
 }
 
 boot();

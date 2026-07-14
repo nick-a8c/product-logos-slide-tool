@@ -17,17 +17,46 @@ It ships with **two layout modes**:
 
 ## What it does
 
-Drop in a row of brand icons and configure them — count, scale, animation, background. Pick a layout, preview it, and export whatever your destination needs. New visitors open in **Line** mode; the tool then remembers your last layout and settings between visits.
+Drop in a row of brand icons and configure them — count, scale, animation, background. Pick a layout, preview it, and export whatever your destination needs. Don't know where to start? The **Setup Assistant** will configure the whole thing for you from two questions.
 
+- **Setup Assistant** — answer *who you are* and *what you're making*, and the tool sets layout, aspect, size, motion and brands for you. Everything stays editable.
+- **Templates** — save a setup you like and reuse it later
 - **Two layouts** — a four-segment **Line** timeline and a continuous 3D **Ring** orbit, switchable any time
 - **AUTOMATTIC wordmark** — split into 10 letters that animate like the icons, using the wordmark's natural spacing
 - **6 aspect ratios** — 16:9, 21:9, 4:3, 9:16, 4:5, 1:1
 - **Gradient backgrounds** — solid, linear, or radial, applied in both layouts and every export
-- **Auto modes** — per-control AUTO/CUSTOM in Line; an aspect-aware AUTO/CUSTOM for the whole Ring shape
+- **Auto modes** — every AUTO control scales itself to your icon count, in both Line and Ring
+- **Undo / Redo** — `Ctrl/Cmd+Z` and `Ctrl/Cmd+Shift+Z`, or the two buttons in the bottom bar
 - **Export formats** — MP4 (H.264), WebM (VP9 with alpha), PNG, still SVG, and an interactive self-contained HTML page (Ring)
 - **Video quality presets** — Web (small) / High / Max (lossless), so shared files stay small
 - **Frame-accurate stills** — pause the animation and scrub (mouse wheel or click-drag) to capture any exact frame as PNG or SVG
 - **Fully offline** — every dependency is inlined. Works without network access.
+
+## Setup Assistant
+
+New visitors get a short **Welcome** with three doors: run the **Setup Assistant**, take the **tutorial**, or just dive in. You can reopen the assistant any time from the button at the top of the panel.
+
+It asks five quick things and configures the tool for you:
+
+1. **Who you are** — Marketing / Design / Sales / Engineering / Just exploring. This only reorders the suggestions; it sets nothing on its own.
+2. **What you're making** — Social Reel, Social post, Slide, Website hero, Logo loop, Email banner, Wallpaper. *This* is what drives the settings.
+3. **Line or Ring** — pre-selected for you, with animated previews of each. Override it if you like.
+4. **Your brands** — pick the logos, and watch a live preview of the actual layout update as you go.
+5. **Review** — see exactly what will be set, then open it in the tool (and optionally save it as a template).
+
+Guided setups always start on a clean white background. Nothing is locked in — every setting is still yours to tweak afterwards.
+
+### Templates
+
+Save any setup as a named template and it'll be waiting at the top of the assistant next time. Templates capture the design (layout, brands, motion, aspect, background) — not your theme or panel position. They're stored in your browser; the existing JSON preset export still works for sharing across machines.
+
+## Undo / Redo
+
+Every change is undoable — sliders, layout switches, icon swaps, background, the assistant, template loads.
+
+- **`Ctrl/Cmd+Z`** to undo, **`Ctrl/Cmd+Shift+Z`** (or `Ctrl+Y`) to redo, or use the two circular buttons in the bottom bar.
+- Dragging a slider counts as **one** undo step, not one per pixel.
+- History is per-session (50 steps) and resets when you reload. It never touches your theme or panel position.
 
 ## How to use
 
@@ -73,18 +102,21 @@ Switch **Stage Layout** to **RING** for a continuous orbit instead of a timeline
 
 The **Overall Control** at the top works in Ring mode too:
 
-- **AUTO** sets the four shape sliders — **Radius, Tilt, Angle, Icon Size** — to values tuned for the current aspect ratio, and re-snaps them whenever you change aspect. Those four plus **Speed** appear grayed out (still draggable — grabbing one drops you into CUSTOM).
+- **AUTO** sizes the ring for you. **Tilt** and **Angle** follow the aspect ratio, while **Radius** and **Icon Size** scale with your **icon count** — the same way Line's Spacing and Scale do. Add icons and the ring grows and the logos shrink to fit; remove them and it tightens back up. Those sliders appear grayed out (still draggable — grabbing one drops you into CUSTOM).
 - **CUSTOM** hands you full manual control of every Ring setting.
 - AUTO is **non-destructive**: switching to AUTO stashes your CUSTOM "playground." Switch back without touching anything and it's restored exactly. The first time you change *any* Ring setting in AUTO, the stash is committed and CUSTOM keeps the new values.
 
-| Aspect | Radius | Tilt | Angle | Icon Size |
-|---|---|---|---|---|
-| 16:9 | 65 | 32 | -18 | 12 |
-| 21:9 | 48 | 32 | -18 | 12 |
-| 4:3 | 60 | 32 | -18 | 9 |
-| 9:16 | 95 | 35 | -60 | 7 |
-| 4:5 | 89 | 30 | -60 | 7 |
-| 1:1 | 60 | 32 | -18 | 9 |
+Radius / Icon Size are tuned per aspect, interpolated between these anchor points:
+
+| Aspect | 3 icons | 7 icons | 10 icons | 16 icons | 25 icons |
+|---|---|---|---|---|---|
+| 16:9 & 21:9 | 20 / 18 | 25 / 16 | 29 / 15 | 40 / 14 | 48 / 12 |
+| 4:3 | — | 29 / 14 | — | — | 57 / 9 |
+| 9:16 | — | 60 / 11 | — | — | 87 / 7 |
+| 4:5 | — | 47 / 14 | — | — | 81 / 10 |
+| 1:1 | — | 61 / 17 | — | — | 75 / 10 |
+
+*(9:16, 4:5 and 1:1 cap the icon count at 18.)*
 
 ### Ring interactions
 
@@ -183,16 +215,16 @@ MP4 export uses the browser-native [WebCodecs](https://developer.mozilla.org/en-
 ## Filename format
 
 ```
-product-logos-slide-tool_1920x1080_v2.mp4
-product-logos-slide-tool_1080x1920_v2.png
-product-logos-slide-tool_preset_1920x1080_v2.json
+product-logos-slide-tool_1920x1080_v2.2.mp4
+product-logos-slide-tool_1080x1920_v2.2.png
+product-logos-slide-tool_preset_1920x1080_v2.2.json
 ```
 
 Format: `product-logos-slide-tool_<resolution>_<app-version>.<ext>`
 
 ## Architecture
 
-Single HTML file (~385 KB), three inlined script blocks:
+Single HTML file (~444 KB), three inlined script blocks:
 1. `gifenc` (~9 KB) — GIF encoder, retained from earlier versions (GIF export has since been removed)
 2. `mp4-muxer` (~73 KB) — MP4 container muxer
 3. App code — UI, animation, both layout engines, sequencer, export pipeline
