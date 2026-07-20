@@ -1203,11 +1203,6 @@
   .wiz-close:hover { color: var(--text); }
   .wiz-body { overflow-y: auto; flex: 1; padding: 2px 2px 8px; min-height: 190px; }
 
-  .wiz-chips { display: flex; flex-wrap: wrap; gap: 10px; }
-  .wiz-chip { padding: 12px 18px; border-radius: 10px; border: 1px solid var(--button-secondary-border); background: var(--button-secondary-bg); color: var(--text); font-size: 13px; font-weight: 500; cursor: pointer; transition: border-color 0.15s ease; }
-  .wiz-chip:hover { border-color: var(--accent); }
-  .wiz-chip.selected { border-color: var(--accent); background: var(--accent); color: #fff; }
-
   .wiz-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .wiz-card { text-align: left; padding: 13px 15px; border-radius: 11px; border: 1px solid var(--button-secondary-border); background: var(--button-secondary-bg); cursor: pointer; transition: border-color 0.15s ease; }
   .wiz-card:hover { border-color: var(--accent); }
@@ -1275,7 +1270,7 @@
   .wiz-tpl-save input { flex: 1; padding: 9px 12px; border-radius: 9px; border: 1px solid var(--button-secondary-border); background: var(--button-secondary-bg); color: var(--text); font-size: 13px; }
 
   .wiz-footer { display: flex; align-items: center; justify-content: space-between; padding-top: 16px; gap: 10px; }
-  .wiz-foot-right { display: flex; align-items: center; gap: 10px; }
+  .wiz-foot-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
   .wiz-btn { padding: 9px 16px; border-radius: 9px; border: 1px solid var(--button-secondary-border); background: var(--button-secondary-bg); color: var(--text); font-size: 12.5px; font-weight: 500; cursor: pointer; }
   .wiz-btn:hover { border-color: var(--accent); }
   .wiz-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -1468,7 +1463,7 @@
   /* Undo / Redo — circular floating buttons in the bottom bar (right of PLAY ALL). */
   .history-switch { display: flex; align-items: center; gap: 8px; }
   .hist-btn {
-    width: 42px; height: 42px; border-radius: 50%;
+    height: 42px; border-radius: 21px; padding: 0 16px; gap: 7px;
     background: var(--panel-bg);
     border: 1px solid var(--section-border);
     box-shadow: var(--panel-shadow);
@@ -1477,6 +1472,7 @@
     cursor: pointer;
     transition: background 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
   }
+  .hist-label { font-size: 13px; font-weight: 600; letter-spacing: 0.01em; }
   .hist-btn:hover { background: var(--button-secondary-hover); border-color: var(--accent); }
   .hist-btn:disabled { opacity: 0.35; cursor: default; }
   .hist-btn:disabled:hover { background: var(--panel-bg); border-color: var(--section-border); }
@@ -1809,7 +1805,7 @@
         </div>
       </div>
 
-      <div class="section open" data-section="control" data-tier="advanced">
+      <div class="section open" data-section="control">
         <div class="section-header" data-toggle>
           <h2>Control</h2>
           <span class="chev">›</span>
@@ -2321,10 +2317,12 @@
 
   <div class="history-switch" id="historySwitch">
     <button id="btn-undo" class="hist-btn" type="button" title="Undo (Ctrl+Z)" aria-label="Undo" disabled>
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      <span class="hist-label">Undo</span>
     </button>
     <button id="btn-redo" class="hist-btn" type="button" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled>
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      <span class="hist-label">Redo</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
     </button>
   </div>
 </div>
@@ -2388,7 +2386,7 @@
   </div>
 </div>
 
-<!-- v2.2 setup wizard (role → use-case → tweaks → review) -->
+<!-- v2.2 setup wizard (use-case → layout → brands → review) -->
 <div class="modal-bg wizard-modal" id="wizardModal">
   <div class="modal">
     <div class="wiz-head">
@@ -8512,16 +8510,9 @@ function openWelcome() { document.getElementById('welcomeModal').classList.add('
 function closeWelcome() { document.getElementById('welcomeModal').classList.remove('open'); }
 
 // ── Setup wizard ─────────────────────────────────────────────────────────────
-// Role (light touch) → use-case (drives settings) → tweaks (brands / background /
-// size) → review. applyWizard() writes the mapped settings into `state` and runs
-// the normal apply pipeline. Everything stays fully editable in the tool after.
-const WIZ_ROLES = [
-  { id: 'marketing',   label: 'Marketing',      useCases: ['reel', 'square', 'email'] },
-  { id: 'design',      label: 'Design',         useCases: ['hero', 'loop', 'slide'] },
-  { id: 'sales',       label: 'Sales',          useCases: ['slide', 'email', 'wallpaper'] },
-  { id: 'engineering', label: 'Engineering',    useCases: ['hero', 'loop'] },
-  { id: 'explore',     label: 'Just exploring', useCases: 'all' },
-];
+// Use-case (drives settings) → layout → brands → review. applyWizard() writes the
+// mapped settings into `state` and runs the normal apply pipeline. Everything stays
+// fully editable in the tool after.
 const WIZ_USECASES = [
   { id: 'reel',      label: 'Social Reel / Story',  meta: 'Vertical video · 9:16',   layout: 'line', ratio: '9:16', format: 'MP4',              size: 'standard', bg: 'solid',    feel: 'snappy' },
   { id: 'square',    label: 'Social post (square)', meta: 'Square video · 1:1',      layout: 'line', ratio: '1:1',  format: 'MP4',              size: 'standard', bg: 'solid',    feel: 'balanced' },
@@ -8538,7 +8529,7 @@ const WIZ_LAYOUTS = [
   { id: 'line', label: 'Line', desc: 'A row that animates in and out' },
   { id: 'ring', label: 'Ring', desc: 'A continuous 3D orbit' },
 ];
-const WIZ_STEPS = 5;
+const WIZ_STEPS = 4;
 const FEEL_LABEL = { calm: 'Calm', balanced: 'Balanced', snappy: 'Snappy' };
 let wiz = null;
 
@@ -8588,7 +8579,7 @@ function wizFmtDate(iso) { try { return new Date(iso).toLocaleDateString(undefin
 
 function openWizard() {
   const templates = loadTemplates();
-  wiz = { step: templates.length ? 0 : 1, role: null, useCase: null, layout: null, brands: null, bgMode: null, bgColor: '#ffffff', size: null };
+  wiz = { step: templates.length ? 0 : 1, useCase: null, layout: null, brands: null, bgMode: null, bgColor: '#ffffff', size: null };
   document.getElementById('wizardModal').classList.add('open');
   renderWizard();
 }
@@ -8598,7 +8589,7 @@ function closeWizard() {
   endIntro(); // no-op unless this was the first-run flow
 }
 
-// ── Animated step-3 layout thumbnails ────────────────────────────────────────
+// ── Animated step-2 layout thumbnails ────────────────────────────────────────
 // Both are standalone code (no Lottie dependency). Line = 5 dots in a row, each
 // growing + fading in then out, staggered from the centre outward (a CSS re-creation
 // of the original Lottie). Ring = 8 dots orbit a tilted ellipse, front dots larger
@@ -8719,7 +8710,7 @@ function renderWizPreview() {
 }
 
 function renderWizard() {
-  if (wiz.step !== 3) destroyWizThumbs(); // stop thumbnail animations when off the layout step
+  if (wiz.step !== 2) destroyWizThumbs(); // stop thumbnail animations when off the layout step
   const dots = document.getElementById('wizDots');
   dots.innerHTML = '';
   for (let i = 1; i <= WIZ_STEPS; i++) {
@@ -8759,26 +8750,14 @@ function renderWizard() {
     next.disabled = false;
 
   } else if (wiz.step === 1) {
-    title.textContent = 'Who are you?';
-    sub.textContent = 'Just to suggest a starting point — it sets nothing on its own.';
-    body.innerHTML = '<div class="wiz-chips">' + WIZ_ROLES.map(r =>
-      `<button class="wiz-chip${wiz.role === r.id ? ' selected' : ''}" data-role="${r.id}">${r.label}</button>`).join('') + '</div>';
-    body.querySelectorAll('[data-role]').forEach(b => b.onclick = () => { wiz.role = b.dataset.role; renderWizard(); });
-    next.textContent = 'Next';
-    next.disabled = !wiz.role;
-
-  } else if (wiz.step === 2) {
     title.textContent = 'What are you making?';
     sub.textContent = 'This sets the layout, aspect, format and motion for you.';
-    const role = WIZ_ROLES.find(r => r.id === wiz.role);
-    const suggested = role && role.useCases !== 'all' ? role.useCases : WIZ_USECASES.map(u => u.id);
-    const ordered = [...WIZ_USECASES].sort((a, b) => (suggested.indexOf(b.id) >= 0) - (suggested.indexOf(a.id) >= 0));
-    body.innerHTML = '<div class="wiz-cards">' + ordered.map(u =>
+    body.innerHTML = '<div class="wiz-cards">' + WIZ_USECASES.map(u =>
       `<button class="wiz-card${wiz.useCase === u.id ? ' selected' : ''}" data-uc="${u.id}">
         <span class="wcard-title">${u.label}</span><span class="wcard-meta">${u.meta}</span></button>`).join('') + '</div>';
     body.querySelectorAll('[data-uc]').forEach(b => b.onclick = () => {
       wiz.useCase = b.dataset.uc;
-      // Seed step-3 defaults from the use-case (first time only).
+      // Seed the layout step's defaults from the use-case (first time only).
       const uc = wizUseCase();
       if (wiz.layout == null) wiz.layout = uc.layout;
       if (wiz.bgMode == null) wiz.bgMode = uc.bg;
@@ -8788,7 +8767,7 @@ function renderWizard() {
     next.textContent = 'Next';
     next.disabled = !wiz.useCase;
 
-  } else if (wiz.step === 3) {
+  } else if (wiz.step === 2) {
     if (wiz.layout == null) { const u = wizUseCase(); wiz.layout = u ? u.layout : 'line'; }
     title.textContent = 'Line or Ring?';
     sub.textContent = 'Line animates a row in and out. Ring is a continuous 3D orbit.';
@@ -8807,7 +8786,7 @@ function renderWizard() {
     next.textContent = 'Next';
     next.disabled = !wiz.layout;
 
-  } else if (wiz.step === 4) {
+  } else if (wiz.step === 3) {
     if (!wiz.brands) wiz.brands = wizDefaultBrands();
     const uc = wizUseCase();
     const cap = getMaxCountForAspect(uc.ratio);
@@ -8854,7 +8833,7 @@ function renderWizard() {
     next.textContent = 'Next';
     next.disabled = wiz.brands.size < 2;
 
-  } else if (wiz.step === 5) {
+  } else if (wiz.step === 4) {
     const uc = wizUseCase();
     const layout = wiz.layout || uc.layout;
     const r = ASPECT_RATIOS[uc.ratio];
@@ -8983,9 +8962,13 @@ const TUTORIAL_STEPS = [
   },
 ];
 let tutStep = 0;
+// True when the tutorial was reached from the first-run Welcome fork — lets the
+// first step offer a "Back" that returns to Welcome instead of a dead end.
+let tutFromWelcome = false;
 
-function openTutorial() {
+function openTutorial(fromWelcome = false) {
   tutStep = 0;
+  tutFromWelcome = fromWelcome;
   document.getElementById('tutorialModal').classList.add('open');
   renderTutorial();
 }
@@ -9027,7 +9010,9 @@ function renderTutorial() {
   renderTutMedia(tutStep);
   document.getElementById('tutTitle').textContent = s.title;
   document.getElementById('tutBody').textContent = s.body;
-  document.getElementById('btn-tut-back').hidden = tutStep === 0;
+  // On the first step, Back is a dead end unless we came from Welcome — then it
+  // returns there rather than being hidden.
+  document.getElementById('btn-tut-back').hidden = tutStep === 0 && !tutFromWelcome;
   const next = document.getElementById('btn-tut-next');
   next.textContent = tutStep === TUTORIAL_STEPS.length - 1 ? 'Done' : 'Next';
 }
@@ -9035,14 +9020,23 @@ function tutNext() {
   if (tutStep < TUTORIAL_STEPS.length - 1) { tutStep++; renderTutorial(); return; }
   closeTutorial();
 }
-function tutBack() { if (tutStep > 0) { tutStep--; renderTutorial(); } }
+function tutBack() {
+  if (tutStep > 0) { tutStep--; renderTutorial(); return; }
+  // First step + came from Welcome → hand back to the Welcome fork, keeping the
+  // intro backdrop up (don't call closeTutorial(), which would end the intro).
+  if (tutFromWelcome) {
+    tutFromWelcome = false;
+    document.getElementById('tutorialModal').classList.remove('open');
+    openWelcome();
+  }
+}
 
 function bindOnboarding() {
   const wm = document.getElementById('welcomeModal');
   // Handing off to the assistant or the tutorial keeps the intro backdrop up —
   // only "Just start" (or dismissing) drops the user into the tool.
   document.getElementById('btn-welcome-wizard').onclick   = () => { markOnboarded(); closeWelcome(); openWizard(); };
-  document.getElementById('btn-welcome-tutorial').onclick = () => { markOnboarded(); closeWelcome(); openTutorial(); };
+  document.getElementById('btn-welcome-tutorial').onclick = () => { markOnboarded(); closeWelcome(); openTutorial(true); };
   document.getElementById('btn-welcome-skip').onclick     = () => { markOnboarded(); closeWelcome(); endIntro(); };
   // Dismiss (backdrop click or Esc) counts as "Just start".
   wm.addEventListener('click', (e) => { if (e.target === wm) { markOnboarded(); closeWelcome(); endIntro(); } });

@@ -17,9 +17,9 @@ It ships with **two layout modes**:
 
 ## What it does
 
-Drop in a row of brand icons and configure them — count, scale, animation, background. Pick a layout, preview it, and export whatever your destination needs. Don't know where to start? The **Setup Assistant** will configure the whole thing for you from two questions.
+Drop in a row of brand icons and configure them — count, scale, animation, background. Pick a layout, preview it, and export whatever your destination needs. Don't know where to start? The **Setup Assistant** will configure the whole thing for you from a single question.
 
-- **Setup Assistant** — answer *who you are* and *what you're making*, and the tool sets layout, aspect, size, motion and brands for you. Everything stays editable.
+- **Setup Assistant** — tell it *what you're making* and it sets layout, aspect, size, motion and brands for you. Everything stays editable.
 - **Templates** — save a setup you like and reuse it later
 - **Two layouts** — a four-segment **Line** timeline and a continuous 3D **Ring** orbit, switchable any time
 - **AUTOMATTIC wordmark** — split into 10 letters that animate like the icons, using the wordmark's natural spacing
@@ -36,13 +36,12 @@ Drop in a row of brand icons and configure them — count, scale, animation, bac
 
 New visitors get a short **Welcome** with three doors: run the **Setup Assistant**, take the **tutorial**, or just dive in. You can reopen the assistant any time from the button at the top of the panel.
 
-It asks five quick things and configures the tool for you:
+It asks a few quick things and configures the tool for you:
 
-1. **Who you are** — Marketing / Design / Sales / Engineering / Just exploring. This only reorders the suggestions; it sets nothing on its own.
-2. **What you're making** — Social Reel, Social post, Slide, Website hero, Logo loop, Email banner, Wallpaper. *This* is what drives the settings.
-3. **Line or Ring** — pre-selected for you, with animated previews of each. Override it if you like.
-4. **Your brands** — pick the logos, and watch a live preview of the actual layout update as you go.
-5. **Review** — see exactly what will be set, then open it in the tool (and optionally save it as a template).
+1. **What you're making** — Social Reel, Social post, Slide, Website hero, Logo loop, Email banner, Wallpaper. This is what drives the settings.
+2. **Line or Ring** — pre-selected for you, with animated previews of each. Override it if you like.
+3. **Your brands** — pick the logos, and watch a live preview of the actual layout update as you go.
+4. **Review** — see exactly what will be set, then open it in the tool (and optionally save it as a template).
 
 Guided setups always start on a clean white background. Nothing is locked in — every setting is still yours to tweak afterwards.
 

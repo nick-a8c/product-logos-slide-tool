@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.3.1] — 2026-07-20
+
+Onboarding and panel refinements from a walkthrough.
+
+### Changed
+
+- **Setup Assistant drops the "Who are you?" role step.** It only pre-sorted the use-case cards and set nothing on its own, so the assistant now opens straight on *What are you making?* — four steps instead of five (use-case → layout → brands → review).
+- **Control (Overall Control AUTO / CUSTOM) is now in Essentials** for both Line and Ring, not just Advanced.
+- **Undo / Redo buttons are now labelled.** The circular icon-only buttons became labelled pills (*‹ Undo* / *Redo ›*) so they're not mistaken for a prev/next stepper.
+
+### Fixed
+
+- **First-run tutorial can return to the Welcome fork.** Choosing *Show me how it works* was a one-way trip; its first step now shows **Back**, which returns to Welcome with the intro backdrop intact. (Opening the tutorial from the persistent launcher still has no first-step Back.)
+- **Tutorial "Next" no longer drifts left on the first step.** With no Back button to balance it, the Skip/Next group slid to the centre; it's now anchored to the right on every step (`.wiz-foot-right { margin-left: auto }`), which also keeps the assistant's footer consistent.
+
 ## [2.3.0] — 2026-07-14
 
 The **Panel** release. v2.2 made the tool approachable on the way *in*; this one makes it approachable once you're *there*. The settings panel went from **39 controls on screen to about 7** — with nothing removed and nothing renamed.

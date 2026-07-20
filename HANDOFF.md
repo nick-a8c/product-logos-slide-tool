@@ -158,16 +158,17 @@ New visitors get one **Welcome** modal (never two stacked) with three choices: *
 
 ### Setup Assistant (the wizard)
 
-Entry: the holographic **"Setup Assistant"** button at the top of the panel (`#btn-open-wizard`), or the Welcome fork. Dismissible modal over the tool. 5 steps + an optional step 0:
+Entry: the holographic **"Setup Assistant"** button at the top of the panel (`#btn-open-wizard`), or the Welcome fork. Dismissible modal over the tool. 4 steps + an optional step 0 (`WIZ_STEPS = 4`):
 
 | Step | Content |
 |---|---|
 | 0 | *Start from a template* — only shown if templates exist |
-| 1 | **Role** (Marketing / Design / Sales / Engineering / Just exploring) — only pre-sorts the use-case cards, sets nothing |
-| 2 | **Use-case** — drives the real settings (see mapping) |
-| 3 | **Line or Ring** — two **animated thumbnails**; pre-selected from the use-case but the user's pick wins |
-| 4 | **Brands** — 9×3 grid + a **live preview** of the chosen layout that updates as icons toggle |
-| 5 | **Review** → "Open in tool" + optional "Save as template" |
+| 1 | **Use-case** — drives the real settings (see mapping) |
+| 2 | **Line or Ring** — two **animated thumbnails**; pre-selected from the use-case but the user's pick wins |
+| 3 | **Brands** — 9×3 grid + a **live preview** of the chosen layout that updates as icons toggle |
+| 4 | **Review** → "Open in tool" + optional "Save as template" |
+
+> **v2.3.1 removed the old step-1 "Role"** (Marketing / Design / …). It only pre-sorted the use-case cards and set nothing, so it and `WIZ_ROLES` are gone; the branches were renumbered down by one. The layout-thumbnail step is now step **2** (the `if (wiz.step !== 2) destroyWizThumbs()` guard).
 
 `applyWizard()` writes state and runs the normal apply pipeline (`setLayout` → `applyAspectRatio` → resolution → background → brands → `applyFeel` → `recomputeAuto` → `bindUIFromState` → `renderStage` → `persist`).
 
@@ -198,6 +199,8 @@ In-app named templates in `localStorage` under **`icon-stage-templates-v1`** (se
 ### Tutorial
 
 5-step walkthrough (`TUTORIAL_STEPS`), opened from the Welcome fork or the persistent bright **"How it works"** button. Progress dots, Back/Next (→ "Done"), Skip, ×, Esc, backdrop, and ←/→ arrows. `tutorialSeen` persists on close.
+
+When opened from the Welcome fork, `openTutorial(true)` sets `tutFromWelcome`, so the **first step shows Back** and it returns to Welcome (keeping the intro backdrop up — it deliberately does *not* call `closeTutorial()`, which would `endIntro()`). Opened from the persistent launcher, the first step has no Back.
 
 **The clips are still placeholders.** Each step has a `media` field, currently `null`, rendering a dashed 16:9 placeholder. To drop a real clip in, set:
 ```js
@@ -231,7 +234,7 @@ In-memory, **in-session** history (resets on reload — snapshots carry the icon
 
 ## What's done
 
-Everything in the Line + Ring feature set (see above), all export formats offline, the full v2.2 onboarding surface (Welcome fork, Setup Assistant wizard, animated layout thumbnails, live layout preview, in-app templates, 5-step tutorial shell, undo/redo, per-aspect count-driven Ring AUTO, holographic Setup Assistant button, Overall Control refresh + tooltip), and the v2.3 panel restructure (Essentials/Advanced tiers, contextual Motion panel, Motion Feel, AUTO note, first-run intro backdrop).
+Everything in the Line + Ring feature set (see above), all export formats offline, the full v2.2 onboarding surface (Welcome fork, Setup Assistant wizard — use-case → layout → brands → review, animated layout thumbnails, live layout preview, in-app templates, 5-step tutorial shell, undo/redo, per-aspect count-driven Ring AUTO, holographic Setup Assistant button, Overall Control refresh + tooltip), and the v2.3 panel restructure (Essentials/Advanced tiers, contextual Motion panel, Motion Feel, AUTO note, first-run intro backdrop). v2.3.1 trimmed the wizard's role step, moved Control into Essentials, labelled the undo/redo buttons, and gave the first-run tutorial a Back-to-Welcome path.
 
 ## What's pending or open
 
