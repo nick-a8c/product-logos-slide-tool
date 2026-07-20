@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.4.0] — 2026-07-20
+
+Vertical Line layouts and real tutorial clips.
+
+### Added
+
+- **Line arrangement: Row / Column.** A new toggle under Stage Layout (Line only) stacks the icons vertically and slides them in on the Y axis — the natural fit for portrait aspects (9:16, 4:5). It reuses the entire four-segment timeline, stagger, AUTO and Motion Feel; it's an axis flip, not a new layout. Persisted as `state.lineAxis`.
+  - **The AUTOMATTIC wordmark is untouched by column mode** — it stays a horizontal row and slides in horizontally, a 1:1 replica of Row motion. Only the icon segments go vertical.
+  - **Column-aware AUTO sizing.** A column's fit constraint is the stage *height*, not width, so AUTO derives spacing/scale to fill the height — reading the real stage dimensions, so it adapts to every aspect with no per-aspect table (`columnAutoSizing()`). A landscape column is geometrically small (wide stage, short column); portrait is where it shines.
+  - **Export parity.** The canvas exporters (MP4/WebM/PNG) and the still-SVG render the column vertically, matching the live stage; the wordmark exports horizontal. Verified by pixel-measuring real export frames.
+- **Tutorial clips.** The five "How it works" steps now play real MP4 screen-recordings (480×270, in `/tutorial`), replacing the placeholders. They're external files served by GitHub Pages, with rounded corners to match the frame. Opened as a single file offline they can't be fetched, so the video's `onerror` falls back to the placeholder rather than a broken frame.
+
+### Changed
+
+- `APP_VERSION` bumped to `v2.4` (export filename suffix).
+
 ## [2.3.1] — 2026-07-20
 
 Onboarding and panel refinements from a walkthrough.

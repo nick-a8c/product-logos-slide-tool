@@ -73,6 +73,8 @@ Drop `product-logos-slide-tool.html` anywhere a static file can be served. No bu
 
 ## Line layout — the four-segment timeline
 
+**Row or Column.** Under Stage Layout, an *Arrangement* toggle stacks the icons horizontally (Row) or vertically (Column). Column slides the icons in on the vertical axis — best for portrait aspects (9:16, 4:5) — and sizes them to fill the stage height automatically. The AUTOMATTIC wordmark always animates horizontally, unchanged, in either arrangement.
+
 The four segments live on a horizontal timeline under the stage. Click any segment pill to focus and replay it. Each segment has:
 
 - A **duration dropdown** (0–10s) on the right

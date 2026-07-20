@@ -1177,7 +1177,9 @@
     border-radius: 12px; overflow: hidden; margin-bottom: 18px;
     background: var(--button-secondary-bg);
   }
-  .tut-media video, .tut-media img, .tut-media svg { width: 100%; height: 100%; object-fit: cover; display: block; }
+  /* Radius on the element itself, not just the clipping parent — <video> ignores
+     a parent's border-radius clip in some browsers (Safari). */
+  .tut-media video, .tut-media img, .tut-media svg { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 12px; }
   .tut-media-ph {
     position: absolute; inset: 0;
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
@@ -1574,6 +1576,7 @@
   .app[data-layout="ring"] .ctrl[data-auto-key="scale"],
   .app[data-layout="ring"] .row:has(#exportRange),
   .app[data-layout="ring"] #btn-copy-embed,
+  .app[data-layout="ring"] .line-axis-row,
   .app[data-layout="ring"] .timeline { display: none; }
   /* Interactive HTML export is a ring-mode feature (the line embed is the
      CSS-keyframe Copy-embed-code path). */
@@ -1800,6 +1803,13 @@
                 </svg>
               </button>
               <button class="overall-btn" id="btn-layout-ring" type="button">RING</button>
+            </div>
+          </div>
+          <div class="ctrl-row line-axis-row" id="lineAxisRow">
+            <span class="name">Arrangement</span>
+            <div class="overall-buttons" id="lineAxisButtons">
+              <button class="overall-btn active" id="btn-axis-row" type="button">ROW</button>
+              <button class="overall-btn" id="btn-axis-column" type="button">COLUMN</button>
             </div>
           </div>
         </div>
@@ -4445,6 +4455,9 @@ const state = {
   // v2.1: stage layout — 'line' (classic timeline-driven row) or 'ring'
   // (continuous 3D orbit; bypasses the segment timeline).
   layout: 'line',
+  // v2.4 prototype: Line arrangement axis — 'row' (classic horizontal) or
+  // 'column' (icons stacked top→bottom, sliding in vertically). Line-only.
+  lineAxis: 'row',
   ring: Object.assign({}, RING_DEFAULTS),
   // Link toggle between LINE/RING: when true, the settings both layouts share
   // (icon count, zoom, background) stay mirrored. When false, each layout
@@ -4494,8 +4507,41 @@ const RESTRICTED_AUTO_KEYS = new Set(['spacing', 'scale']);
 // Easing in auto mode = the "Original" preset.
 const AUTO_EASING = 'cubic-bezier(0.28, 0, 0, 1)';
 
+// Landscape (non-restricted) row anchor value at count n, un-rounded — the base
+// the column sizing scales from.
+function lineRowAnchor(key, n) {
+  const counts = AUTO_ANCHOR_COUNTS;
+  if (n <= counts[0]) return AUTO_ANCHORS[counts[0]][key];
+  if (n >= counts[counts.length - 1]) return AUTO_ANCHORS[counts[counts.length - 1]][key];
+  for (let i = 0; i < counts.length - 1; i++) {
+    const lo = counts[i], hi = counts[i + 1];
+    if (n >= lo && n <= hi) {
+      const t = (n - lo) / (hi - lo);
+      return AUTO_ANCHORS[lo][key] + (AUTO_ANCHORS[hi][key] - AUTO_ANCHORS[lo][key]) * t;
+    }
+  }
+  return AUTO_ANCHORS[counts[0]][key];
+}
+
+// Column arrangement fits the stage HEIGHT, where the row anchors fit the 1920px
+// width. Take the landscape row's size/gap for this count and scale both by
+// (stageH / 1920): the column then fills the same fraction of the height that the
+// row fills of the width. Reads the real stage dims, so it adapts to every aspect
+// (short landscape columns shrink, tall portrait columns grow) with no per-aspect
+// table. Clamped to the slider ranges; within the count caps it never overflows.
+function columnAutoSizing(n) {
+  const factor = getCanvas().h / 1920;
+  return {
+    scale:   Math.max(40, Math.min(200, Math.round(lineRowAnchor('scale', n)   * factor))),
+    spacing: Math.max(0,  Math.min(40,  Math.round(lineRowAnchor('spacing', n) * factor))),
+  };
+}
+
 // Compute the auto-derived value for a single key at a given icon count.
 function getAutoValue(key, n) {
+  if ((key === 'scale' || key === 'spacing') && state.layout === 'line' && state.lineAxis === 'column') {
+    return columnAutoSizing(n)[key];
+  }
   const restricted = RESTRICTED_AUTO_KEYS.has(key)
     && (state.aspectRatio === '9:16' || state.aspectRatio === '4:5' || state.aspectRatio === '1:1');
   const table  = restricted ? AUTO_ANCHORS_RESTRICTED : AUTO_ANCHORS;
@@ -4785,7 +4831,7 @@ function serializeState() {
     segmentPauses: state.segmentPauses,
     library: state.library, assignments: state.assignments,
     theme: state.theme, panelState: state.panelState, panelX: state.panelX, panelY: state.panelY,
-    layout: state.layout, ring: state.ring,
+    layout: state.layout, lineAxis: state.lineAxis, ring: state.ring,
     layoutLink: state.layoutLink, layoutShared: state.layoutShared,
     onboarded: state.onboarded, tutorialSeen: state.tutorialSeen,
     panelTier: state.panelTier, motionFeel: state.motionFeel,
@@ -5893,6 +5939,9 @@ function renderStage(skipAnimation = false) {
     // A8C: use the wordmark's natural source-SVG spacing, not the icon Spacing
     // slider. Slot height = the user's A8C scale; letter widths + inter-letter
     // gaps are scaled from the source by (slotH / reference wordmark height).
+    // The wordmark always stays a horizontal row (unreadable stacked), even in
+    // column mode — only its slide direction follows the axis (see playAnimation).
+    iconRow.style.flexDirection = 'row';
     iconRow.style.gap = '0px';
     const letters = getA8cLetters();
     const slotH = getA8cSlotSize();
@@ -5915,6 +5964,7 @@ function renderStage(skipAnimation = false) {
     });
   } else {
     const gap = getGap();
+    iconRow.style.flexDirection = state.lineAxis === 'column' ? 'column' : 'row';
     iconRow.style.gap = gap + 'px';
     const slotSize = getSlotSize();
     for (let i = 0; i < state.count; i++) {
@@ -6029,14 +6079,16 @@ function playAnimation() {
     // Reversed-order outros: outer slots animate first (delay 0), middle last.
     const delay = (reverseOrder ? (maxStep - step) : step) * stagger;
     const xOffset = getSlideOffset(i, n, state.slideDistance);
+    // Icons slide on Y in column mode; row mode on X. The AUTOMATTIC wordmark is
+    // left exactly as row mode (a 1:1 replica) — A8C segments always slide on X.
+    // Same function on both ends of the transition so the browser interpolates cleanly.
+    const axisFn = (state.lineAxis === 'column' && !isA8cSegment()) ? 'translateY' : 'translateX';
+    const slid = axisFn + '(' + xOffset + 'px) scale(' + startScale + ')';
+    const rest = axisFn + '(0px) scale(1)';
     // Intro: start at slid-out / scaled-down / transparent → land at rest.
     // Outro: start at rest → slide back out / scale down / fade.
-    const fromTransform = isOut
-      ? 'translateX(0px) scale(1)'
-      : 'translateX(' + xOffset + 'px) scale(' + startScale + ')';
-    const toTransform = isOut
-      ? 'translateX(' + xOffset + 'px) scale(' + startScale + ')'
-      : 'translateX(0px) scale(1)';
+    const fromTransform = isOut ? rest : slid;
+    const toTransform = isOut ? slid : rest;
     const fromOpacity = isOut ? '1' : '0';
     const toOpacity = isOut ? '0' : '1';
     slot.style.transition = 'none';
@@ -6681,7 +6733,14 @@ function drawSegmentFrame(ctx, w, h, seg, localTMs, iconImages, a8cImages) {
   if (n === 0) return;
 
   const totalWidth = slotWidths.reduce((a, b) => a + b, 0) + leadGaps.reduce((a, b) => a + b, 0);
+  const totalStackH = slotHeights.reduce((a, b) => a + b, 0) + leadGaps.reduce((a, b) => a + b, 0);
+  // Column mode stacks icon segments vertically and slides them on Y. The
+  // AUTOMATTIC wordmark is left exactly as row mode (a 1:1 replica) — A8C segments
+  // stay a horizontal row and slide on X. Mirror of the live stage.
+  const stackVertical = state.layout === 'line' && state.lineAxis === 'column' && !isA8c;
   const startX = stageW / 2 - totalWidth / 2;
+  const startYStack = stageH / 2 - totalStackH / 2;
+  const centerX = stageW / 2;
   const centerY = stageH / 2;
 
   const dur = segObj.duration;
@@ -6692,9 +6751,9 @@ function drawSegmentFrame(ctx, w, h, seg, localTMs, iconImages, a8cImages) {
   const reverseOrder = isOut && !!segObj.reverseOrder;
   const maxStep = getMirrorMaxStep(n);
 
-  let xCursor = startX;
+  let cursor = stackVertical ? startYStack : startX;
   for (let i = 0; i < n; i++) {
-    xCursor += leadGaps[i];
+    cursor += leadGaps[i];
     const slotW = slotWidths[i];
     const slotItemH = slotHeights[i];
     const step = getMirrorStep(i, n);
@@ -6704,12 +6763,20 @@ function drawSegmentFrame(ctx, w, h, seg, localTMs, iconImages, a8cImages) {
     const e = easeFromString(easing, t);
     // Intro: progress 0→1 (start state → rest). Outro: 1→0 (rest → start state).
     const progress = isOut ? 1 - e : e;
-    const xOffsetStart = getSlideOffset(i, n, slideDistance);
-    const xOffset = xOffsetStart * (1 - progress);
+    const slideStart = getSlideOffset(i, n, slideDistance);
+    const slideOff = slideStart * (1 - progress);
     const scale = startScale + (1 - startScale) * progress;
     const opacity = progress;
-    const cxStage = xCursor + slotW / 2 + xOffset;
-    const cyStage = centerY;
+    // Column icons walk `cursor` down Y and slide on Y; row (and the wordmark in
+    // either mode) walks X and slides on X.
+    let cxStage, cyStage;
+    if (stackVertical) {
+      cxStage = centerX;
+      cyStage = cursor + slotItemH / 2 + slideOff;
+    } else {
+      cxStage = cursor + slotW / 2 + slideOff;
+      cyStage = centerY;
+    }
     const img = images[i];
     if (img) {
       ctx.save();
@@ -6723,7 +6790,7 @@ function drawSegmentFrame(ctx, w, h, seg, localTMs, iconImages, a8cImages) {
       ctx.drawImage(img, offsetX + (cxStage - destW / 2) * s, offsetY + (cyStage - destH / 2) * s, destW * s, destH * s);
       ctx.restore();
     }
-    xCursor += slotW;
+    cursor += stackVertical ? slotItemH : slotW;
   }
 }
 
@@ -6937,7 +7004,7 @@ function downloadBlob(blob, filename) {
 
 // Build a descriptive filename like "icon-stage_1920x1080_high-q_v1.mp4".
 // `extra` is an optional segment (e.g. 'preset' for preset JSON).
-const APP_VERSION = 'v2.3';
+const APP_VERSION = 'v2.4';
 function buildFilename(ext, extra) {
   const parts = ['product-logos-slide-tool'];
   if (extra) parts.push(extra);
@@ -7038,10 +7105,13 @@ async function exportSVG() {
     if (filterDefs) svg += `<defs>${filterDefs}</defs>`;
   } else {
     // Line: the scrubbed frame when paused, otherwise the settled (rest) row.
+    // Column mode stacks the row vertically and slides on Y (mirror of the stage).
     const slotSize = getSlotSize();
     const gap = getGap();
-    const totalWidth = slotSize * state.count + gap * (state.count - 1);
-    const startX = stageW / 2 - totalWidth / 2;
+    const column = state.lineAxis === 'column';
+    const total = slotSize * state.count + gap * (state.count - 1);
+    const startAlong = (column ? stageH : stageW) / 2 - total / 2;
+    const centerX = stageW / 2;
     const centerY = stageH / 2;
     const scrubbing = scrubPaused && scrubLineT != null;
     const segObj = state.segments[state.activeSegment] || {};
@@ -7052,18 +7122,20 @@ async function exportSVG() {
     for (let i = 0; i < state.count; i++) {
       const id = state.assignments[i]; if (!id) continue;
       const icon = state.library.find(x => x.id === id); if (!icon) continue;
-      const cx = startX + i * (slotSize + gap) + slotSize / 2;
-      let xOffset = 0, scale = 1, opacity = 1;
+      const along = startAlong + i * (slotSize + gap) + slotSize / 2;
+      let slideOff = 0, scale = 1, opacity = 1;
       if (scrubbing) {
         const step = getMirrorStep(i, state.count);
         const delay = (reverseOrder ? (maxStep - step) : step) * state.stagger;
         const t = Math.max(0, Math.min(1, (scrubLineT - delay) / state.duration));
         const progress = isOut ? 1 - easeFromString(state.easing, t) : easeFromString(state.easing, t);
-        xOffset = getSlideOffset(i, state.count, state.slideDistance) * (1 - progress);
+        slideOff = getSlideOffset(i, state.count, state.slideDistance) * (1 - progress);
         scale = startScale + (1 - startScale) * progress;
         opacity = progress;
       }
-      svg += place(icon, cx + xOffset, centerY, slotSize * scale, opacity);
+      const px = column ? centerX : along + slideOff;
+      const py = column ? along + slideOff : centerY;
+      svg += place(icon, px, py, slotSize * scale, opacity);
     }
   }
 
@@ -7548,6 +7620,16 @@ function setLayout(mode) {
   persist();
 }
 
+// Line arrangement: 'row' (horizontal) or 'column' (vertical stack). Prototype.
+function setLineAxis(axis) {
+  if (state.lineAxis === axis) return;
+  state.lineAxis = axis;
+  recomputeAuto();   // spacing/scale fit height in column, width in row — re-derive
+  bindUIFromState(); // reflect the new auto values + active button
+  renderStage(true); // rebuild with the new flex axis, placed at rest
+  persist();
+}
+
 // v2.1 — sync gradient background controls: active mode button, color-B
 // inputs, slider values, and which gradient rows are visible for the mode.
 function applyBgUI() {
@@ -7588,6 +7670,8 @@ function applyLayoutUI() {
   document.getElementById('btn-layout-line').classList.toggle('active', state.layout !== 'ring');
   document.getElementById('btn-layout-ring').classList.toggle('active', state.layout === 'ring');
   document.getElementById('btn-layout-link').classList.toggle('active', !!state.layoutLink);
+  document.getElementById('btn-axis-row').classList.toggle('active', state.lineAxis !== 'column');
+  document.getElementById('btn-axis-column').classList.toggle('active', state.lineAxis === 'column');
   ['grow', 'shrink', 'none'].forEach(m => {
     document.getElementById('btn-hover-' + m).classList.toggle('active', state.ring.hoverMode === m);
   });
@@ -8065,6 +8149,8 @@ function bindEvents() {
   // setLayout() is now a global function (hoisted so the setup wizard can use it).
   document.getElementById('btn-layout-line').onclick = () => setLayout('line');
   document.getElementById('btn-layout-ring').onclick = () => setLayout('ring');
+  document.getElementById('btn-axis-row').onclick = () => setLineAxis('row');
+  document.getElementById('btn-axis-column').onclick = () => setLineAxis('column');
   // Link toggle. Turning it either way re-seeds both stashes from the current
   // screen, so the active layout's settings win ("transfer to the other side"
   // when linking, and a common starting point when unlinking).
@@ -8929,36 +9015,38 @@ function applyWizard() {
 }
 // ── Tutorial ─────────────────────────────────────────────────────────────────
 // Step-through walkthrough, opened from the Welcome fork or the persistent
-// "How it works" button. Each step has a media slot; `media` is null for now and
-// renders a placeholder. To drop a real clip in, set media to either:
-//   { type: 'video', src: '<data: URI or path>' }   → inlined <video> (autoplay/loop/muted)
+// "How it works" button. Each step has a media slot rendered by renderTutMedia():
+//   { type: 'video', src: '<data: URI or path>' }   → <video> (autoplay/loop/muted)
 //   { type: 'svg',   markup: '<svg …>' }            → inline SVG/CSS animation
-// Nothing else needs to change — renderTutMedia() handles both.
+//   null                                            → dashed placeholder
+// The clips are external MP4s in /tutorial (served by GitHub Pages). They load on
+// the live site; opened from a single file offline they can't be fetched, so the
+// video's onerror falls back to the placeholder — see renderTutMedia().
 const TUTORIAL_STEPS = [
   {
     title: 'Pick your brands',
     body: 'Choose which Automattic logos appear. Click any icon on the stage to swap it, or set them all at once in the Setup Assistant.',
-    media: null,
+    media: { type: 'video', src: 'tutorial/how-to-1.mp4' },
   },
   {
     title: 'Line or Ring',
     body: 'Line animates a row of logos in and out across four segments. Ring puts them on a continuous 3D orbit. Switch any time under Stage Layout.',
-    media: null,
+    media: { type: 'video', src: 'tutorial/how-to-2.mp4' },
   },
   {
     title: 'Tune the motion',
     body: 'Drag the timeline segments to set speed, stagger and easing. Leave a control on AUTO and it scales itself to your icon count.',
-    media: null,
+    media: { type: 'video', src: 'tutorial/how-to-3.mp4' },
   },
   {
     title: 'Background & aspect',
     body: 'Pick a solid or gradient background (or turn it off for transparency), then choose an aspect ratio — 16:9, 9:16, 1:1 and more.',
-    media: null,
+    media: { type: 'video', src: 'tutorial/how-to-4.mp4' },
   },
   {
     title: 'Export it',
     body: 'Export MP4 or WebM for video, PNG or SVG for a still frame, or a self-contained interactive HTML page for the Ring.',
-    media: null,
+    media: { type: 'video', src: 'tutorial/how-to-5.mp4' },
   },
 ];
 let tutStep = 0;
@@ -8978,23 +9066,34 @@ function closeTutorial() {
   endIntro(); // no-op unless this was the first-run flow
 }
 
-// Renders the step's clip, or a placeholder until one is supplied.
+// The dashed placeholder shown before a clip loads (or if it fails to).
+function tutPlaceholderHTML(step) {
+  return `<div class="tut-media-ph">
+       <span class="tut-ph-icon">
+         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+       </span>
+       <span class="tut-ph-label">Clip ${step + 1} of ${TUTORIAL_STEPS.length}</span>
+       <span class="tut-ph-hint">Video placeholder — drop the clip in here</span>
+     </div>`;
+}
+
+// Renders the step's clip, or a placeholder. The clips are external MP4s, so when
+// the tool is opened as a single file offline they can't be fetched — the video's
+// onerror swaps in the placeholder rather than leaving a broken frame.
 function renderTutMedia(step) {
   const host = document.getElementById('tutMedia');
   const m = TUTORIAL_STEPS[step].media;
   if (m && m.type === 'video') {
-    host.innerHTML = `<video src="${m.src}" autoplay loop muted playsinline></video>`;
+    host.innerHTML = '';
+    const v = document.createElement('video');
+    v.src = m.src;
+    v.autoplay = true; v.loop = true; v.muted = true; v.playsInline = true;
+    v.onerror = () => { host.innerHTML = tutPlaceholderHTML(step); };
+    host.appendChild(v);
   } else if (m && m.type === 'svg') {
     host.innerHTML = m.markup;
   } else {
-    host.innerHTML =
-      `<div class="tut-media-ph">
-         <span class="tut-ph-icon">
-           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-         </span>
-         <span class="tut-ph-label">Clip ${step + 1} of ${TUTORIAL_STEPS.length}</span>
-         <span class="tut-ph-hint">Video placeholder — drop the clip in here</span>
-       </div>`;
+    host.innerHTML = tutPlaceholderHTML(step);
   }
 }
 

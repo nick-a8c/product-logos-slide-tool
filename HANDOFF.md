@@ -1,14 +1,14 @@
 # Product Logos Slide Tool — Project Handoff
 
-This document captures the state of the **Product Logos Slide Tool** (internal nickname: *Icon Stage*) as of **v2.3.0** so a fresh Claude session can pick up from here without re-deriving context. Read it top to bottom before making changes.
+This document captures the state of the **Product Logos Slide Tool** (internal nickname: *Icon Stage*) as of **v2.4.0** so a fresh Claude session can pick up from here without re-deriving context. Read it top to bottom before making changes.
 
 ## Quick links
 
 - **Live site:** https://nick-a8c.github.io/product-logos-slide-tool/
 - **Source:** https://github.com/nick-a8c/product-logos-slide-tool
 - **Owner:** Nebojsa Jurcic (`nick-a8c`)
-- **Current version:** v2.3.0 (Panel release — Essentials/Advanced tiers, contextual Motion panel, Motion Feel, first-run intro backdrop)
-- **Previous:** v2.2.0 (Onboarding — Setup Assistant, templates, tutorial, undo/redo)
+- **Current version:** v2.4.0 (Vertical Line — Row/Column arrangement — plus real tutorial clips)
+- **Previous:** v2.3.x (Panel — Essentials/Advanced tiers, contextual Motion panel, Motion Feel, intro backdrop)
 
 ## What this project is
 
@@ -56,6 +56,7 @@ Key fields:
 - **Chrome:** `theme`, `panelState`, `panelX/Y`
 - **v2.2 onboarding:** `onboarded`, `tutorialSeen`
 - **v2.3 panel:** `panelTier` (`'essentials'|'advanced'`), `motionFeel` (`'calm'|'balanced'|'snappy'|'custom'`)
+- **v2.4 arrangement:** `lineAxis` (`'row'|'column'`) — Line only; ignored by Ring
 
 ### The four-segment model (Line)
 
@@ -107,7 +108,22 @@ One source of truth: `getBgCSS()` (live stage + HTML embeds) and `fillBgCanvas()
 
 ---
 
-## v2.3 — The panel (current release)
+## v2.4 — Vertical Line (Row / Column) — current release
+
+A `Row / Column` toggle under Stage Layout (`state.lineAxis`, Line only; the `.line-axis-row` hides in Ring). Column stacks the icons vertically and slides them in on Y — reusing the whole four-segment timeline, an axis flip rather than a new layout.
+
+**Three render paths had to agree** (the recurring trap in this tool):
+1. **Live stage** — `renderStage` sets `iconRow.style.flexDirection = 'column'` for icon segments; `playAnimation` picks the slide function: `const axisFn = (state.lineAxis === 'column' && !isA8cSegment()) ? 'translateY' : 'translateX'` (same function on both ends so the transition interpolates cleanly).
+2. **Canvas export** — `drawSegmentFrame` walks a `cursor` down Y when `stackVertical` (`= column && !isA8c`), else across X. Verified by pixel-measuring real frames.
+3. **Still-SVG** — the Line branch of `exportSVG` mirrors the same (icon-only path).
+
+**The AUTOMATTIC wordmark is a 1:1 replica of Row in column mode** — A8C segments keep `flexDirection:'row'` and slide on X. `stackVertical`/`axisFn` both exclude `isA8c`. Don't regress this: the whole point is the wordmark is *untouched*.
+
+**Column-aware AUTO sizing** — a column fits the stage *height*, not width. `columnAutoSizing(n)` takes the landscape row anchor's size/gap for the count and scales both by `getCanvas().h / 1920`, so the column fills the same fraction of the height that the row fills of the 1920px width. Reads real stage dims → adapts to every aspect with **no per-aspect table**. Routed through `getAutoValue()` for the `scale`/`spacing` keys when `lineAxis==='column'`. Landscape columns are geometrically small; portrait (9:16, 4:5) is the intended home. `getMaxCountForAspect` is unchanged (current caps never overflow a column).
+
+---
+
+## v2.3 — The panel
 
 The panel had **39 controls** on screen in Line (35 in Ring), and **22 of those 39 were the same 5 knobs repeated** across four near-identical Motion sections. v2.3 gets the default view down to about **7 controls without removing anything**.
 
@@ -202,12 +218,13 @@ In-app named templates in `localStorage` under **`icon-stage-templates-v1`** (se
 
 When opened from the Welcome fork, `openTutorial(true)` sets `tutFromWelcome`, so the **first step shows Back** and it returns to Welcome (keeping the intro backdrop up — it deliberately does *not* call `closeTutorial()`, which would `endIntro()`). Opened from the persistent launcher, the first step has no Back.
 
-**The clips are still placeholders.** Each step has a `media` field, currently `null`, rendering a dashed 16:9 placeholder. To drop a real clip in, set:
+**The clips are real as of v2.4** — five MP4 screen-recordings (480×270) in `/tutorial`, wired as `media: { type:'video', src:'tutorial/how-to-N.mp4' }`. Each step's `media` can be:
 ```js
-media: { type: 'video', src: '<data: URI>' }   // inlined <video>, autoplay/loop/muted
-media: { type: 'svg',   markup: '<svg …>' }    // inline SVG/CSS animation
+media: { type: 'video', src: 'tutorial/how-to-1.mp4' }  // external path OR a data: URI
+media: { type: 'svg',   markup: '<svg …>' }             // inline SVG/CSS animation
+media: null                                             // dashed placeholder
 ```
-`renderTutMedia()` handles both; nothing else changes. **Offline rule:** video must be a **`data:` URI** (inlined), not an external path — keep clips small, or go the SVG/CSS route like the thumbnails.
+`renderTutMedia()` handles all three. **They are external files, deliberately** (the owner chose repo-hosted MP4 over inlining to keep the HTML light). Consequence: they load on the **live Pages site** but not when the tool is opened as a single file **offline** — so the `<video>` gets an `onerror` that swaps in the placeholder (`tutPlaceholderHTML`) rather than a broken frame. If offline playback is ever required, switch `src` to an inlined `data:` URI. Rounded corners are set on the `<video>` element itself (`.tut-media video { border-radius }`), not just the clipping parent — Safari ignores the parent clip on video.
 
 ### Undo / Redo
 
@@ -238,7 +255,8 @@ Everything in the Line + Ring feature set (see above), all export formats offlin
 
 ## What's pending or open
 
-- **Tutorial clips** — the 5 media slots are placeholders. Owner to supply; see the Tutorial section for the drop-in format.
+- **Tutorial clips are done** (v2.4) — five external MP4s in `/tutorial`. They don't play in the offline single file (external fetch) — falls back to the placeholder; switch to inlined `data:` URIs if offline playback is ever needed. See the Tutorial section.
+- **Column count caps** — `getMaxCountForAspect` is unchanged, so a tall portrait column can't yet hold more icons than the row cap allows. A column-specific cap is a possible follow-up.
 - **Animated (multi-frame) SVG export** — the SVG exporter emits a static still. A full-sequence animated SVG (SMIL keyframe concatenation) remains unimplemented.
 - **Mobile layout is a prototype** — functional bottom-sheet behind `@media (max-width: 640px)`, unpolished, needs real-device testing.
 - **Dead code to prune:** inlined `gifenc` (~9 KB, unused); `uc.bg` + `wiz.bgMode` / `wiz.bgColor` (background is now always white).
