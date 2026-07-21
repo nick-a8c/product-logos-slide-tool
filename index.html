@@ -4654,10 +4654,16 @@ function getCanvas() {
   return { w: r.w, h: r.h };
 }
 
-// Vertical/square ratios can't fit more than 18 icons without clipping.
+// The cap is layout-dependent. A Line ROW runs across the frame's width, so the
+// narrow ratios (9:16, 4:5, 1:1 — all 1080px wide) can't fit more than 18 without
+// clipping. The Ring distributes icons around an orbit instead and is already
+// tuned to 25 on every aspect (RING_COUNT_ANCHORS_BY_ASPECT), so it has no such
+// limit. Pass `layout` explicitly where the target layout isn't state.layout yet
+// (e.g. the Setup Assistant configuring a layout the tool isn't in).
 const COUNT_LIMIT_RESTRICTED = 18;
 const COUNT_LIMIT_DEFAULT = 25;
-function getMaxCountForAspect(ar) {
+function getMaxCountForAspect(ar, layout) {
+  if ((layout || state.layout) === 'ring') return COUNT_LIMIT_DEFAULT;
   return (ar === '9:16' || ar === '4:5' || ar === '1:1')
     ? COUNT_LIMIT_RESTRICTED : COUNT_LIMIT_DEFAULT;
 }
@@ -7612,6 +7618,10 @@ function setLayout(mode) {
     applyLayoutShared(state.layoutShared[mode]);
   }
   state.layout = mode;
+  // The count cap is layout-dependent (Ring reaches 25 on the narrow ratios where
+  // a Line row caps at 18), so re-apply it — switching Ring→Line on 9:16/4:5/1:1
+  // with more than 18 icons must clamp down rather than render a clipped row.
+  applyCountLimitForAspect();
   recomputeAuto();
   ensureAssignments();
   autoFillNewSlots();
@@ -8757,7 +8767,7 @@ function renderWizPreview() {
   if (rect.width < 300) { requestAnimationFrame(renderWizPreview); return; }
   const uc = wizUseCase();
   const layout = wiz.layout || (uc && uc.layout) || 'line';
-  const cap = uc ? getMaxCountForAspect(uc.ratio) : 25;
+  const cap = uc ? getMaxCountForAspect(uc.ratio, layout) : 25;
   const icons = DEFAULT_ICONS.filter(d => wiz.brands.has(d.id)).slice(0, cap);
   stage.innerHTML = '';
   if (!icons.length) return;
@@ -8875,7 +8885,7 @@ function renderWizard() {
   } else if (wiz.step === 3) {
     if (!wiz.brands) wiz.brands = wizDefaultBrands();
     const uc = wizUseCase();
-    const cap = getMaxCountForAspect(uc.ratio);
+    const cap = getMaxCountForAspect(uc.ratio, wiz.layout || uc.layout);
     title.textContent = 'Pick your brands';
     sub.textContent = 'Choose which logos appear — the preview updates as you go.';
     body.innerHTML = `
@@ -8925,7 +8935,7 @@ function renderWizard() {
     const r = ASPECT_RATIOS[uc.ratio];
     const factor = wiz.size === 'small' ? 0.5 : wiz.size === 'large' ? 2 : 1;
     const res = Math.round(r.w * factor) + '×' + Math.round(r.h * factor);
-    const cap = getMaxCountForAspect(uc.ratio);
+    const cap = getMaxCountForAspect(uc.ratio, layout);
     const brandCount = Math.min(wiz.brands.size, cap);
     const bgLabel = 'White';
     // Recommended export follows the use-case unless the layout was overridden.
@@ -9000,8 +9010,8 @@ function applyWizard() {
   // Background — guided setup always starts on a solid white background,
   // regardless of layout or use-case. Editable afterwards in the panel.
   state.bgOn = true; state.bgMode = 'solid'; state.bgColor = '#ffffff';
-  // Brands → count + assignments (capped for the aspect).
-  const cap = getMaxCountForAspect(uc.ratio);
+  // Brands → count + assignments (capped for the aspect + chosen layout).
+  const cap = getMaxCountForAspect(uc.ratio, layout);
   const chosen = [...(wiz.brands || [])].slice(0, cap);
   if (chosen.length >= 2) { state.assignments = chosen.slice(); state.count = chosen.length; ensureAssignments(); }
   // Motion feel.

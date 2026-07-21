@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.4.1] — 2026-07-20
+
+### Changed
+
+- **Ring now goes to 25 icons on every aspect ratio.** 9:16, 4:5 and 1:1 were capped at 18; that limit was really a Line constraint (a horizontal row can't fit more across a 1080px-wide frame), not a Ring one. The count cap is now **layout-aware** — `getMaxCountForAspect(ar, layout)`. Line keeps the 18 cap on those three ratios.
+  - The per-aspect Ring anchors at 25 (9:16 → radius 87 / size 7 · 4:5 → 81 / 10 · 1:1 → 75 / 10) already existed but were unreachable behind the cap; they're now live values.
+  - `setLayout()` re-applies the cap, so switching Ring → Line on a narrow ratio with the layouts linked clamps 25 → 18 rather than rendering a clipped row.
+  - The Setup Assistant caps against the layout *it is configuring*, not the one the tool is currently in.
+
 ## [2.4.0] — 2026-07-20
 
 Vertical Line layouts and real tutorial clips.

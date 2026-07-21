@@ -90,7 +90,9 @@ Ring anchor table (interpolates linearly between anchors; clamps at the ends, so
 | 4:5 | 7→47/14, 25→81/10 |
 | 1:1 | 7→61/17, 25→75/10 |
 
-Note: 9:16 / 4:5 / 1:1 **cap icon count at 18** (`getMaxCountForAspect`), so the 25-anchor only defines the slope.
+Note: as of **v2.4.1** the cap is **layout-aware** (`getMaxCountForAspect(ar, layout)`). Ring reaches **25 on every aspect**, so these 25-anchors are now live values rather than just defining the slope. Line still caps 9:16 / 4:5 / 1:1 at **18** — a horizontal row can't fit more across those 1080px-wide frames. Two consequences to preserve:
+- `setLayout()` re-applies `applyCountLimitForAspect()`, so a linked Ring→Line switch on a narrow ratio clamps 25→18 instead of rendering a clipped row.
+- The Setup Assistant passes the *chosen* layout explicitly (it caps for a layout the tool isn't in yet), otherwise picking Ring in the wizard would still cap at 18.
 
 Ring AUTO is non-destructive: entering AUTO stashes the CUSTOM "playground" (`ringCustomStash` / `ringAutoPristine`); touching any ring control in AUTO burns the stash.
 
