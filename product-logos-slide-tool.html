@@ -4811,8 +4811,9 @@ const DEFAULT_LAYOUTS = {
   24: ['01', '02', '07', '08', '09', '10', '11', '12', '15', '16', '17', '18', '19', '20', '24', '03', '04', '05', '06', '13', '14', '21', '22', '23'],
   25: ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25'],
   // Happy Tools ('26') is intentionally last-priority: it only appears at the full
-  // count, never in a smaller curated set.
-  26: ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26'],
+  // count, never in a smaller curated set. Its *position* in that row is between
+  // Clay Mesh ('05') and WPScan ('06') — priority and placement are separate.
+  26: ['01', '02', '03', '04', '05', '26', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25'],
 };
 
 // The stock icon ids that existed before `stockSeen` was introduced (v2.4.2), used
@@ -5084,6 +5085,16 @@ function restore() {
       }
     }
     state.stockSeen = DEFAULT_ICONS.map(d => d.id); // don't re-offer these again
+    // v2.4.4 — Happy Tools first shipped appended to the END of the 26-icon row
+    // (both by DEFAULT_LAYOUTS and by the v2.4.3 auto-placement). Its designed slot
+    // is between Clay Mesh and WPScan. Reposition rows that are still in plain
+    // ascending id order — i.e. never hand-arranged. A composition the user
+    // actually arranged is left exactly as they built it.
+    if (state.count === 26 && Array.isArray(state.assignments) && state.assignments.length >= 26) {
+      const ascending = DEFAULT_LAYOUTS[26].slice().sort();
+      const untouched = state.assignments.slice(0, 26).every((id, i) => id === ascending[i]);
+      if (untouched) state.assignments = DEFAULT_LAYOUTS[26].concat(state.assignments.slice(26));
+    }
     syncTopFromActiveSegment();
     return true;
   } catch (e) { return false; }

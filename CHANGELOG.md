@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.4.4] — 2026-07-20
+
+### Changed
+
+- **Happy Tools now sits between Clay Mesh and WPScan** in the 26-icon row, instead of being appended to the end. Priority and placement are separate concerns: it's still last-priority (it only appears at the full count of 26, never in a smaller curated set) — that's just no longer where it *sits*.
+- Existing saves are repositioned by a migration in `restore()`, but **only when the row is still in plain ascending id order** — i.e. never hand-arranged. A composition the user actually arranged is left exactly as they built it.
+
 ## [2.4.3] — 2026-07-20
 
 ### Fixed
