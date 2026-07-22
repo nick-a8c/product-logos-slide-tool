@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.4.2] — 2026-07-20
+
+### Added
+
+- **Happy Tools** joins the brand library as icon `26`, bringing it to 26 icons. Available in Line, Ring, the icon picker, and the Setup Assistant's brand grid.
+  - **Deliberately last-priority.** It only appears in `DEFAULT_LAYOUTS[26]` — the full set — so it's never auto-placed in a smaller curated layout, and it isn't pre-selected for a new user in the Setup Assistant (which still starts from the curated 15). It's always available to pick manually.
+
+### Changed
+
+- **Icon count ceiling raised 25 → 26** (`COUNT_LIMIT_DEFAULT`, plus the Icons slider's `max` / `data-max`). Line's 18 cap on 9:16 / 4:5 / 1:1 is unchanged — those frames still can't fit a wider row.
+- **New 26-icon AUTO anchor for Line** (spacing 11 / scale 49). Without it, 26 would clamp to the 25 values and fill ~94% of the width on 4:3 — the tightest non-restricted frame. The new anchor lands it at ~90%, matching 25's density. Ring anchors are unchanged; 26 clamps to the 25 values, which is safe on an orbit.
+
 ## [2.4.1] — 2026-07-20
 
 ### Changed

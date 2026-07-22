@@ -117,7 +117,7 @@ Radius / Icon Size are tuned per aspect, interpolated between these anchor point
 | 4:5 | — | 47 / 14 | — | — | 81 / 10 |
 | 1:1 | — | 61 / 17 | — | — | 75 / 10 |
 
-*(All six ratios go to 25 icons in Ring. In Line, 9:16 / 4:5 / 1:1 cap at 18 — a horizontal row can't fit more across a 1080px-wide frame without clipping.)*
+*(All six ratios go to 26 icons — the full library — in Ring. In Line, 9:16 / 4:5 / 1:1 cap at 18 — a horizontal row can't fit more across a 1080px-wide frame without clipping.)*
 
 ### Ring interactions
 
@@ -158,7 +158,7 @@ Everything below is in **Advanced**; the Essentials view shows the subset you ne
 
 | Control | Range | Scope | What it does |
 |---|---|---|---|
-| Icons | 2 – 25 (Line caps at 18 on 9:16 / 4:5 / 1:1) | Composition | How many icons in the row / ring |
+| Icons | 2 – 26 (Line caps at 18 on 9:16 / 4:5 / 1:1) | Composition | How many icons in the row / ring |
 | Spacing | 0 – 40 | Composition (Line) | Pixel gap between icons (doesn't affect the wordmark) |
 | Scale | 40 – 200 | Composition (Line) | Size multiplier for each icon |
 | Zoom | 20 – 100 | Composition (preview only) | Viewport zoom (not exported) |

@@ -90,7 +90,7 @@ Ring anchor table (interpolates linearly between anchors; clamps at the ends, so
 | 4:5 | 7→47/14, 25→81/10 |
 | 1:1 | 7→61/17, 25→75/10 |
 
-Note: as of **v2.4.1** the cap is **layout-aware** (`getMaxCountForAspect(ar, layout)`). Ring reaches **25 on every aspect**, so these 25-anchors are now live values rather than just defining the slope. Line still caps 9:16 / 4:5 / 1:1 at **18** — a horizontal row can't fit more across those 1080px-wide frames. Two consequences to preserve:
+Note: as of **v2.4.1** the cap is **layout-aware** (`getMaxCountForAspect(ar, layout)`), and **v2.4.2** raised the ceiling to **26** (the full library, after Happy Tools). Ring reaches 26 on every aspect, so these anchors are live values rather than just defining the slope; counts above the last anchor (25) clamp to it, which is safe for a ring — one more icon just packs slightly tighter around the same orbit. Line still caps 9:16 / 4:5 / 1:1 at **18** — a horizontal row can't fit more across those 1080px-wide frames. Two consequences to preserve:
 - `setLayout()` re-applies `applyCountLimitForAspect()`, so a linked Ring→Line switch on a narrow ratio clamps 25→18 instead of rendering a clipped row.
 - The Setup Assistant passes the *chosen* layout explicitly (it caps for a layout the tool isn't in yet), otherwise picking Ring in the wizard would still cap at 18.
 
