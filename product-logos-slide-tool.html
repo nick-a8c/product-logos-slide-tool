@@ -4446,6 +4446,10 @@ const state = {
   // live PLAY ALL sequencer and in the export timeline.
   segmentPauses: { logosInToOut: 2, logosOutToA8cIn: 0, a8cInToOut: 2 },
   library: [], assignments: [],
+  // Stock icon ids this save has already been offered. Lets restore() add icons
+  // newly shipped in DEFAULT_ICONS without resurrecting ones the user removed.
+  // Populated by loadDefaults()/restore() — DEFAULT_ICONS is declared below this.
+  stockSeen: [],
   isPlaying: false, playStartTime: 0,
   editingSlot: -1,
   theme: 'light',
@@ -4811,6 +4815,11 @@ const DEFAULT_LAYOUTS = {
   26: ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26'],
 };
 
+// The stock icon ids that existed before `stockSeen` was introduced (v2.4.2), used
+// to seed it for older saves. FROZEN — never extend this when adding a new icon;
+// new ids are meant to fall outside it so restore() can offer them once.
+const STOCK_IDS_PRE_2_4_2 = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25'];
+
 function uid() { return 'i' + Math.random().toString(36).slice(2, 10); }
 
 function showToast(msg) {
@@ -4843,7 +4852,7 @@ function serializeState() {
     aspectRatio: state.aspectRatio,
     resolution: state.resolution, fps: state.fps, videoQuality: state.videoQuality, exportRange: state.exportRange,
     segmentPauses: state.segmentPauses,
-    library: state.library, assignments: state.assignments,
+    library: state.library, assignments: state.assignments, stockSeen: state.stockSeen,
     theme: state.theme, panelState: state.panelState, panelX: state.panelX, panelY: state.panelY,
     layout: state.layout, lineAxis: state.lineAxis, ring: state.ring,
     layoutLink: state.layoutLink, layoutShared: state.layoutShared,
@@ -5049,6 +5058,32 @@ function restore() {
     if (typeof state.a8cScale === 'number') {
       state.a8cScale = Math.max(10, Math.min(80, state.a8cScale));
     }
+    // v2.4.2 — the icon library is PERSISTED, so a returning user's saved copy
+    // predates any icon added to DEFAULT_ICONS since (Happy Tools was the first).
+    // Without this they'd never see new stock icons, and a slot expecting one
+    // renders as an empty "+" (autoFillNewSlots filters its pool by library ids).
+    //
+    // Only icons this save has NEVER been offered are added, tracked via
+    // `stockSeen` — otherwise every reload would resurrect icons the user removed
+    // with the library's × button. Saves predating stockSeen are seeded with the
+    // pre-v2.4.2 stock set, so their removals are respected too.
+    if (!Array.isArray(state.library)) state.library = [];
+    const seen = new Set(Array.isArray(data.stockSeen) ? data.stockSeen : STOCK_IDS_PRE_2_4_2);
+    const inLib = new Set(state.library.map(x => x && x.id));
+    const newIcons = DEFAULT_ICONS.filter(d => !seen.has(d.id) && !inLib.has(d.id));
+    // A library the user cleared outright stays cleared — "Load defaults" restores it.
+    if (newIcons.length && state.library.length) {
+      state.library.push(...newIcons);
+      // Drop each newly-arrived icon into an empty slot so the "+" gap fills
+      // itself. Only the NEW icons are placed — a slot the user deliberately
+      // emptied of an existing icon is never refilled behind their back.
+      const placed = new Set((state.assignments || []).filter(Boolean));
+      const queue = newIcons.map(d => d.id).filter(id => !placed.has(id));
+      for (let i = 0; i < state.count && queue.length; i++) {
+        if (!state.assignments[i]) state.assignments[i] = queue.shift();
+      }
+    }
+    state.stockSeen = DEFAULT_ICONS.map(d => d.id); // don't re-offer these again
     syncTopFromActiveSegment();
     return true;
   } catch (e) { return false; }
@@ -5525,6 +5560,7 @@ function loadDefaults() {
   // Use stable IDs ('01'..'25') from DEFAULT_ICONS so DEFAULT_LAYOUTS can
   // reference them by ID. User-uploaded icons still get random IDs from uid().
   state.library = DEFAULT_ICONS.map(d => ({ id: d.id, name: d.name, svg: d.svg }));
+  state.stockSeen = DEFAULT_ICONS.map(d => d.id);
   // Layout-specific defaults: this button is intentionally NOT mirrored by
   // the layout link — each layout loads its own designed preset.
   if (state.layout === 'ring') {

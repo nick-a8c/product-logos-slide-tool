@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.4.3] — 2026-07-20
+
+### Fixed
+
+- **Existing users never saw Happy Tools.** The icon library is persisted to `localStorage`, so anyone with a saved setup loaded their old 25-icon library and the new icon simply didn't exist for them — it was missing from the Icon Library panel, and the 26th slot rendered as an empty `+` in both Line and Ring (`autoFillNewSlots()` filters its pool by library ids, so it could never fill). `restore()` now merges in stock icons a save predates, and drops each newly-arrived icon into an empty slot so the gap fills itself.
+
+### Added
+
+- **`state.stockSeen`** — the stock icon ids a save has already been offered. Without it the merge above would resurrect icons the user deleted with the library's × button on every reload. Only ids outside `stockSeen` are added; saves predating the field are seeded from `STOCK_IDS_PRE_2_4_2` (frozen — never extend it when adding an icon). A library the user cleared outright stays cleared; *Load defaults* restores it.
+
 ## [2.4.2] — 2026-07-20
 
 ### Added

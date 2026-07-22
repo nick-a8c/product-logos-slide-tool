@@ -250,6 +250,10 @@ In-memory, **in-session** history (resets on reload — snapshots carry the icon
 - Invalid `videoQuality` → `'high'`
 - **v2.2:** missing `data.onboarded` / `data.tutorialSeen` → set **true** (existing users are not re-onboarded). Check `data`, not `state` — see the gotcha above.
 - **v2.3:** no migration needed — a v2.2 save with no `panelTier` / `motionFeel` falls back to the defaults (`'essentials'`, `'balanced'`). Existing users land in Essentials, which is intended; every control is one click away under Advanced.
+- **v2.4.3 — new stock icons (read this before adding an icon).** `state.library` is **persisted**, so shipping a new entry in `DEFAULT_ICONS` does *not* reach existing users: they restore their old library, the icon is absent from the Icon Library panel, and any slot expecting it renders as an empty `+` (because `autoFillNewSlots()` filters its pool by library ids). `restore()` therefore merges in stock icons the save predates and drops each new icon into an empty slot within `count`.
+  - Guarded by **`state.stockSeen`** (the ids a save has already been offered) so the merge can't resurrect icons the user deleted with the library's × button. Saves predating it seed from **`STOCK_IDS_PRE_2_4_2`** — *frozen*, never extend it when adding an icon, or the new id will look "already seen" and never be offered.
+  - A library the user **cleared** stays cleared (the merge is skipped when `library.length === 0`); *Load defaults* restores it.
+  - `stockSeen` is in `serializeState()` — it has to be, or the guard silently never persists (the allow-list trap).
 
 ## What's done
 
